@@ -1,0 +1,74 @@
+:root {
+  --bg: #f5f6f2;
+  --card: #ffffff;
+  --text: #1d2420;
+  --muted: #5f6b64;
+  --border: #dde2dc;
+  --accent: #2f7d4f;
+  --green: #1f7a3f;
+  --lime: #6a8f12;
+  --orange: #c26a00;
+  --red: #c0352b;
+  --grey: #6b7570;
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121614;
+    --card: #1b211e;
+    --text: #e7ece9;
+    --muted: #9aa69f;
+    --border: #2d3631;
+    --accent: #4fb07a;
+    --green: #3aa864;
+    --lime: #9bc23a;
+    --orange: #e89a3c;
+    --red: #ef6b5f;
+    --grey: #8a9690;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+.app { max-width: 640px; margin: 0 auto; padding: 0 16px 96px; }
+header { display: flex; align-items: center; justify-content: space-between; }
+h1 { font-size: 1.4rem; margin: 16px 0; }
+h2 { margin: 0 0 4px; font-size: 1.2rem; }
+h3, h4 { margin: 0; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.row > * { flex: 1 1 180px; }
+.sub { border-top: 1px solid var(--border); padding-top: 12px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+label.checkbox { flex-direction: row; align-items: flex-start; gap: 10px; color: var(--text); }
+label.checkbox input { width: 22px; height: 22px; margin-top: 2px; }
+input, textarea, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; width: 100%; }
+button { font: inherit; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text); padding: 10px 14px; cursor: pointer; }
+button.primary, .photo-button { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button:disabled { opacity: 0.6; cursor: default; }
+button.link { background: none; border: none; color: var(--accent); padding: 4px 0; align-self: flex-start; }
+.photo-button { display: block; text-align: center; padding: 18px; border-radius: 12px; font-size: 1.05rem; cursor: pointer; }
+.thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.thumbs figure { margin: 0; display: flex; flex-direction: column; align-items: center; }
+.thumbs img { width: 88px; height: 88px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.error { color: var(--red); }
+.notice { background: color-mix(in srgb, var(--orange) 15%, transparent); border-radius: 10px; padding: 10px 12px; font-size: 0.9rem; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 0.8rem; color: #fff; white-space: nowrap; }
+.badge.large { font-size: 1.25rem; padding: 12px 18px; border-radius: 12px; display: block; text-align: center; }
+.tone-green { background: var(--green); }
+.tone-lime { background: var(--lime); }
+.tone-orange { background: var(--orange); }
+.tone-red { background: var(--red); }
+.tone-grey { background: var(--grey); }
+.result { display: flex; flex-direction: column; gap: 10px; }
+.reasons { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.product-image { max-height: 140px; align-self: center; border-radius: 8px; }
+.product-list, .confirmations { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.product-list button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; }
+.confirmations li { border-left: 3px solid var(--border); padding-left: 10px; }
+nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--border); }
+nav button { flex: 1; max-width: 300px; }
+nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
