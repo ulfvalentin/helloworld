@@ -12,3 +12,7 @@ public class HelloWorld
              System.out.println("Hello World!");
        }
 }
+
+## GlutenCheck
+
+Gluten-Scanner-App mit Supabase: siehe [`app/README.md`](app/README.md).
