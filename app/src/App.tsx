@@ -4,9 +4,10 @@ import { AccountMenu } from './components/AccountMenu'
 import { Login } from './components/Login'
 import { LogoHorizontal, LogoStacked } from './components/Logo'
 import { ProductDetail } from './components/ProductDetail'
-import { ProductEditor } from './components/ProductEditor'
+import { DatabaseIcon } from './components/icons'
 import { ProductList } from './components/ProductList'
 import { Scanner } from './components/Scanner'
+import { ScanPage } from './features/scan-page'
 import { repository } from './lib/repository'
 import { supabase } from './lib/supabase'
 import { stripProduct, useScanFlow } from './lib/useScanFlow'
@@ -59,7 +60,7 @@ export default function App() {
         ) : view.kind === 'scan' ? (
           <Scanner scan={scan} />
         ) : view.kind === 'draft' ? (
-          <ProductEditor
+          <ScanPage
             draft={view.draft}
             onSaved={(product) => setView({ kind: 'product', product })}
             onCancel={() => setView({ kind: 'scan' })}
@@ -99,7 +100,7 @@ export default function App() {
             {scan.busy ? 'Prüfe …' : 'Prüfen'}
           </button>
           <button className={tab === 'list' ? 'active' : ''} onClick={() => setView({ kind: 'list' })}>
-            📚 Datenbank
+            <DatabaseIcon /> Datenbank
           </button>
         </nav>
       )}

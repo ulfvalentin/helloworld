@@ -79,6 +79,20 @@ describe('extractIngredientBlock', () => {
     expect(b.trusted).toBe(false)
   })
 
+  it('schneidet die Zeile bei „Trocken lagern“ ab, behält aber die Zutaten davor', () => {
+    const b = extractIngredientBlock([
+      'Zutaten:(95)', 'Reismehl(96) (91%),(93) Tapiokamehl,(91)', 'Speisesalz.(94) Trocken(93) lagern(90)',
+    ].map(L))!
+    expect(b.text).toBe('Reismehl (91%), Tapiokamehl, Speisesalz.')
+  })
+
+  it('Zubereitungszeile beendet den Zutatenblock', () => {
+    const b = extractIngredientBlock([
+      'Zutaten:(95)', 'Reismehl(96) Salz.(94)', 'Zubereitung:(92) Nudeln(95) 6(90) Minuten(94) kochen(93)',
+    ].map(L))!
+    expect(b.text).toBe('Reismehl Salz.')
+  })
+
   it('liefert null ohne Zutatenüberschrift', () => {
     expect(extractIngredientBlock([L('Nährwerte(90) je(95) 100g(92)')])).toBeNull()
   })
@@ -106,6 +120,23 @@ describe('parseIngredients', () => {
     const r = parseIngredients('Hafer 2.5 %, Vitamine (D2, B12), Salz.')
     expect(r.items).toEqual(['Hafer 2.5 %', 'Vitamine (D2, B12)', 'Salz'])
     expect(r.rest).toBeNull()
+  })
+
+  it('lässt Kochanweisung und Lagerhinweise weg: nur Zutaten', () => {
+    const r = parseIngredients(
+      'Zutaten: Reismehl (91%), Tapiokamehl, Speisesalz. Zubereitung: Reisnudeln 6 Minuten in Wasser kochen. Trocken, wärme- und lichtgeschützt lagern. Mindestens haltbar bis: siehe unten',
+    )
+    expect(r.items).toEqual(['Reismehl (91%)', 'Tapiokamehl', 'Speisesalz'])
+  })
+
+  it('entfernt Anweisungen auch ohne Überschrift und lässt Kochsalz, Trockenhefe und Wasser stehen', () => {
+    const r = parseIngredients('Wasser, Kochsalz, Trockenhefe, 6 Minuten in Wasser kochen, kühl lagern, Mehl')
+    expect(r.items).toEqual(['Wasser', 'Kochsalz', 'Trockenhefe', 'Mehl'])
+  })
+
+  it('verwirft ganze Sätze (zu viele Wörter)', () => {
+    const r = parseIngredients('Reis, Wir empfehlen diese Nudeln frisch zu genießen und sie nicht zu lange zu garen, Salz')
+    expect(r.items).toEqual(['Reis', 'Salz'])
   })
 
   it('fügt Silbentrennung am Zeilenende zusammen', () => {

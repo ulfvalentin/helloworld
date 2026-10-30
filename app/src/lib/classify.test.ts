@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classify, findGlutenSources, findTraceStatements, normalizeText } from './classify'
+import { classify, findGlutenMatches, findGlutenSources, findTraceStatements, normalizeText } from './classify'
 
 const now = new Date('2026-10-29T12:00:00Z')
 
@@ -192,5 +192,51 @@ Probieren Sie auch die So aka Trocken, wärme- und Glasnudeln und weitere lichtg
       now,
     })
     expect(r.status).toBe('contains_gluten')
+  })
+})
+
+describe('findGlutenMatches', () => {
+  it('liefert das ganze Wort, wie es im Text steht, samt Getreide', () => {
+    expect(findGlutenMatches(normalizeText('Vollkornweizenmehl, Zucker, Gerstenmalzextrakt'))).toEqual([
+      { word: 'Vollkornweizenmehl', cereal: 'Weizen' },
+      { word: 'Gerstenmalzextrakt', cereal: 'Gerste, Malz' },
+    ])
+  })
+  it('zählt jedes Wort nur einmal', () => {
+    expect(findGlutenMatches('weizenmehl, weizenmehl')).toHaveLength(1)
+  })
+  it('ignoriert Ausnahmen wie bisher', () => {
+    expect(findGlutenMatches('buchweizenmehl, weizenglukosesirup, ohne weizen')).toEqual([])
+  })
+})
+
+describe('Begründung mit gefundenen Wörtern', () => {
+  it('Enthält Gluten: nennt die Wörter aus der Zutatenliste', () => {
+    const r = classify({ ingredientsText: 'Weizenmehl, Zucker, Gerstenmalzextrakt, Salz', now })
+    expect(r.status).toBe('contains_gluten')
+    const item = r.explanation.find((e) => e.text.startsWith('In der Zutatenliste'))!
+    expect(item.words?.map((w) => w.word)).toEqual(['Weizenmehl', 'Gerstenmalzextrakt'])
+    expect(r.reasons.join(' ')).toMatch(/„Weizenmehl“, „Gerstenmalzextrakt“/)
+    expect(r.glutenFindings.every((f) => f.where === 'zutaten')).toBe(true)
+  })
+
+  it('unterscheidet Zutatenliste und restlichen Verpackungstext', () => {
+    const r = classify({ ingredientsText: 'Reis, Salz', labelText: 'Mit feinem Dinkelmehl verfeinert', now })
+    expect(r.status).toBe('contains_gluten')
+    expect(r.glutenFindings).toEqual([{ word: 'Dinkelmehl', cereal: 'Dinkel', where: 'verpackung' }])
+    expect(r.explanation[0].text).toMatch(/Verpackungstext/)
+  })
+
+  it('Open Food Facts als Quelle wird genannt', () => {
+    const r = classify({ externalTags: ['allergens:en:gluten'], now })
+    expect(r.status).toBe('contains_gluten')
+    expect(r.explanation.map((e) => e.text).join(' ')).toMatch(/Open Food Facts führt Gluten/)
+  })
+
+  it('Spuren: nennt das gefundene Wort im Spurenhinweis', () => {
+    const r = classify({ ingredientsText: 'Zucker, Kakao. Kann Spuren von Weizen und Nüssen enthalten.', now })
+    expect(r.status).toBe('may_contain_gluten')
+    const item = r.explanation.find((e) => e.text.startsWith('Spurenhinweis'))!
+    expect(item.words?.map((w) => w.word)).toEqual(['Weizen'])
   })
 })

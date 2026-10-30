@@ -53,6 +53,40 @@ Diese Datei richtet sich an Claude Code: Bitte Logo, Farben und Schrift genau so
 
 Self-Hosting (empfohlen wegen DSGVO): `npm i @fontsource/archivo` bzw. Variable-Font-Datei aus Google Fonts lokal einbinden.
 
+## Icons
+
+Auf der gesamten Seite gelten **flache Icons in einer Farbe**.
+
+- **Stil:** Linien-Icons (Outline), flach, einfarbig. Keine Emojis, keine Verläufe, keine Schatten, keine mehrfarbigen Icons.
+- **Raster:** 24 px, Linienstärke 2, runde Enden. Mindestgröße 16 px. Im Fließtext und auf Buttons 1,15 em (ca. 18 px),
+  im Einstufungsfeld 30 px.
+- **Quelle:** [Lucide](https://lucide.dev) (`lucide-react`, ISC-Lizenz). Eingebunden wird nur über
+  `src/components/icons.tsx` – dort steht die Liste aller erlaubten Icons.
+- **Farbe:** Ein Icon hat genau eine Farbe und erbt die Textfarbe (`currentColor`): Navy auf hellem Grund, Weiß auf
+  dunklem Grund, auf Buttons die Textfarbe des Buttons. Ausnahme sind Status- und Warnicons, die in der Statusfarbe
+  stehen dürfen (Rot für Fehler und „nicht lesbar“ – das kleine **rote X**, Orange für Warnung, Grün für bestätigt),
+  jeweils ebenfalls einfarbig.
+- **Zugänglichkeit:** Icons neben Text sind dekorativ (`aria-hidden`); Icon-Buttons ohne Text brauchen ein `aria-label`.
+- **Verboten:** das durchgestrichene Weizen-Symbol („Crossed Grain“, geschützte Marke) – deshalb nie `WheatOff` aus Lucide
+  verwenden. „Enthält Gluten“ nutzt das normale Weizen-Icon (`Wheat`).
+
+| Stelle | Icon |
+| --- | --- |
+| Foto aufnehmen | `Camera` |
+| Foto hochladen | `ImageUp` |
+| Navigation „Datenbank“ | `Database` (der Button „Prüfen“ hat bewusst kein Icon) |
+| Konto-Menü | `User` |
+| Zutaten korrigieren | `Pencil` |
+| Hersteller-Website prüfen | `Search` |
+| Link zur Seite des Herstellers | `ExternalLink` |
+| Status „Sicher glutenfrei lt. Hersteller“ | `ShieldCheck` |
+| Status „Keine glutenhaltigen Zutaten“ | `CircleCheck` |
+| Status „Kann Spuren enthalten“, Warnhinweise | `TriangleAlert` |
+| Status „Enthält Gluten“ | `Wheat` |
+| Status „Unbekannt“ | `CircleHelp` |
+| Fehler, „Fotos schwer lesbar“, „nicht bestätigt“ | `X` (rot) |
+| bestätigt | `Check` |
+
 ## Wichtig: Wortmarke noch in Pfade umwandeln
 
 Die Lockup-SVGs setzen den Schriftzug als `<text>` mit Archivo (per `@import` von Google Fonts, Fallback Arial Black).

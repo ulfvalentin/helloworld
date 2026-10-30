@@ -1,76 +1,17 @@
 import { useMemo, useState } from 'react'
-import { classify } from '../lib/classify'
-import { applyManufacturer, lookupManufacturer } from '../lib/manufacturer'
-import { repository } from '../lib/repository'
-import type { Draft, IngredientInfo, Product, ProductInput } from '../types'
-import { IngredientList } from './IngredientList'
-import { Reasons } from './ProductDetail'
-import { StatusBadge } from './StatusBadge'
+import { PencilIcon, SearchIcon } from '../../components/icons'
+import { Verdict } from '../../components/Verdict'
+import { classify } from '../../lib/classify'
+import { applyManufacturer, lookupManufacturer } from '../../lib/manufacturer'
+import { repository } from '../../lib/repository'
+import type { Draft, IngredientInfo, Product, ProductInput } from '../../types'
+import { IngredientsSection } from './IngredientsSection'
 
-const SOURCE_LABEL = {
-  foto: 'Vom Foto gelesen',
-  datenbank: 'Aus eurer Datenbank',
-  openfoodfacts: 'Aus Open Food Facts',
-  hersteller: 'Von der Hersteller-Website',
-} as const
-
-function Bullets({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="notice-box warn">
-      <p>
-        <strong>{title}</strong>
-      </p>
-      <ul>
-        {items.map((i) => (
-          <li key={i}>{i}</li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function IngredientNotice({ info, edited }: { info: IngredientInfo; edited: boolean }) {
-  if (edited) return <p className="notice-box">Von dir korrigiert</p>
-  if (info.source === null)
-    return (
-      <Bullets
-        title="Keine Zutaten gefunden."
-        items={[
-          'Zutatenliste einzeln, aus der Nähe und gerade fotografieren',
-          'oder die Zutaten selbst eintragen („Zutaten korrigieren“)',
-        ]}
-      />
-    )
-  if (!info.trusted)
-    return (
-      <Bullets
-        title="Das Foto war schwer lesbar – die Zutaten sind unsicher."
-        items={[
-          'Zutatenliste einzeln und aus der Nähe fotografieren',
-          'oder Produktnamen eintragen und „Hersteller-Website prüfen“ tippen',
-          'oder die Zutaten selbst korrigieren',
-        ]}
-      />
-    )
-  return (
-    <p className={info.exact === false ? 'notice-box warn' : 'notice-box'}>
-      {info.exact === false
-        ? '⚠️ Zutaten eines passenden Produkts von der Hersteller-Website, aber nicht eindeutig dasselbe – bitte mit der Packung vergleichen.'
-        : SOURCE_LABEL[info.source]}
-      {info.url && (
-        <>
-          {' · '}
-          <a href={info.url} target="_blank" rel="noopener noreferrer">
-            Seite öffnen
-          </a>
-        </>
-      )}
-    </p>
-  )
-}
-
-/** Ergebnis prüfen, korrigieren und in die gemeinsame Datenbank übernehmen. */
-export function ProductEditor({
+/**
+ * Scan-Seite: das Ergebnis nach dem Scan. Einstufung mit Begründung, Zutaten, Produktangaben und Speichern.
+ * Beschreibung und Regeln: FEATURE.md in diesem Ordner.
+ */
+export function ScanPage({
   draft,
   onSaved,
   onCancel,
@@ -141,16 +82,12 @@ export function ProductEditor({
   }
 
   return (
-    <div className="stack">
-      <div className="card result">
-        <StatusBadge status={result.status} large />
-        <Reasons reasons={result.reasons} />
-        {draft.sources.length > 0 && <p className="muted small">Quellen: {draft.sources.join(', ')}</p>}
-      </div>
+    <div className="stack" aria-label="Scan-Seite" data-page="scan-page">
+      <Verdict result={result} />
+      {draft.sources.length > 0 && <p className="muted small sources">Quellen: {draft.sources.join(', ')}</p>}
 
       <div className="card stack">
         <h3>Zutaten</h3>
-        <IngredientNotice info={ingredients} edited={edited} />
         {editing ? (
           <textarea
             rows={6}
@@ -162,15 +99,27 @@ export function ProductEditor({
             aria-label="Zutaten"
           />
         ) : (
-          <IngredientList text={input.ingredients_text} />
+          <IngredientsSection text={input.ingredients_text} info={ingredients} edited={edited} />
         )}
         <div className="row">
           <button type="button" onClick={() => setEditing(!editing)}>
-            {editing ? 'Fertig' : '✏️ Zutaten korrigieren'}
+            {editing ? (
+              'Fertig'
+            ) : (
+              <>
+                <PencilIcon /> Zutaten korrigieren
+              </>
+            )}
           </button>
           {ingredients.source !== 'hersteller' && (
             <button type="button" onClick={checkManufacturer} disabled={looking || !canSearch}>
-              {looking ? 'Suche läuft …' : '🔎 Hersteller-Website prüfen'}
+              {looking ? (
+                'Suche läuft …'
+              ) : (
+                <>
+                  <SearchIcon /> Hersteller-Website prüfen
+                </>
+              )}
             </button>
           )}
         </div>

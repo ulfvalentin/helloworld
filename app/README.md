@@ -69,10 +69,15 @@ sucht notfalls im Web. Eine Seite zählt nur, wenn sie zum Produkt passt (Barcod
 Die Funktion ruft nur öffentliche http(s)-Adressen ab (keine internen Netze, begrenzte Größe und Zeit).
 Lokal (`npm run dev`) wird sie automatisch mit bereitgestellt.
 
+## Features
+
+Größere Seiten liegen als Feature unter `src/features/<name>/` und haben dort eine eigene `FEATURE.md`:
+- **Scan-Seite** (Ergebnis nach dem Scan): [`src/features/scan-page/FEATURE.md`](src/features/scan-page/FEATURE.md)
+
 ## Marke
 
 Logo, Farben und Schrift: `public/brand/BRAND.md`. Die Farben stehen als `--ws-*`-Variablen
-in `src/styles.css`, Archivo wird über `@fontsource/archivo` selbst ausgeliefert (kein Google Fonts).
+in `src/styles.css`, Icons (flach, einfarbig, Lucide) nur über `src/components/icons.tsx` – Regeln im Abschnitt „Icons“ der `BRAND.md`. Archivo wird über `@fontsource/archivo` selbst ausgeliefert (kein Google Fonts).
 
 Die Lockup-SVGs enthalten den Schriftzug als Pfade. Neue oder geänderte Lockups mit `<text>`
 so umwandeln:

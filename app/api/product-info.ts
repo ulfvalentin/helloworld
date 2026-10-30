@@ -174,7 +174,7 @@ export function htmlToText(html: string): string {
 }
 
 const SECTION_END =
-  /^(n[äa]hrwert|durchschnittliche|brennwert|nutrition|allergen|aufbewahr|haltbar|hergestellt|herkunft|inhalt|zubereitung|verwendung|hinweis|energie)/i
+  /^(n[äa]hrwert|durchschnittliche|brennwert|nutrition|allergen|aufbewahr|lager|trocken\b|k[üu]hl|haltbar|hergestellt|herkunft|inhalt|zubereitung|kochanweisung|verwendung|hinweis|energie)/i
 
 /** Zutatenliste aus dem Seitentext: Überschrift „Zutaten“ + die folgende Aufzählung. */
 export function extractIngredients(text: string): string | null {
@@ -192,7 +192,7 @@ export function extractIngredients(text: string): string | null {
       .replace(/\s+/g, ' ')
       // Überschriften wiederholen sich oft („Zutatenliste Zutaten: …“) und danach folgt anderes Seitenmaterial
       .replace(/^(?:(?:zutatenliste|zutaten|zusammensetzung|ingredients)\s*:?\s*)+/i, '')
-      .split(/\s(?=(?:Information|F[üu]llmenge|Gebinde|N[äa]hrwert|Durchschnittliche|Allergen|Brennwert|Aufbewahr)\w*)/i)[0]
+      .split(/\s(?=(?:Information|F[üu]llmenge|Gebinde|N[äa]hrwert|Durchschnittliche|Allergen|Brennwert|Aufbewahr|Lagerung|Zubereitung|Kochanweisung)\w*)/i)[0]
       .trim()
     // Echte Zutatenlisten haben mehrere Einträge
     if ((joined.match(/,/g) ?? []).length >= 1 && joined.length >= 12) return joined.slice(0, 900)
