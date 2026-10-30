@@ -1,4 +1,5 @@
 import type { GlutenStatus } from '../types'
+import { splitSourceLines } from './labelText'
 
 /** Herstellerbestätigungen gelten so viele Monate. */
 export const CONFIRMATION_VALID_MONTHS = 6
@@ -28,8 +29,10 @@ export interface ClassificationInput {
 export interface GlutenFinding {
   word: string
   cereal: string
-  /** Wo es steht: Zutatenliste, restlicher Verpackungstext oder externe Datenbank */
-  where: 'zutaten' | 'verpackung' | 'datenbank'
+  /** Wo es steht: Zutatenliste, restlicher Verpackungstext, eine weitere Quelle oder die externe Datenbank */
+  where: 'zutaten' | 'verpackung' | 'quelle' | 'datenbank'
+  /** Bei `where: 'quelle'`: Name der Quelle („Hersteller-Website“) */
+  source?: string
 }
 
 /** Ein Schritt der Begründung, ggf. mit den gefundenen Wörtern. */
@@ -186,7 +189,9 @@ function formatDate(d: Date): string {
 export function classify(input: ClassificationInput): Classification {
   const now = input.now ?? new Date()
   const ingredients = normalizeText(input.ingredientsText)
-  const label = normalizeText(input.labelText)
+  // „Quelle …: Zutaten“-Zeilen enthalten die Zutaten weiterer Quellen; sie zählen nur für die Gluten-Suche
+  const { sources: otherSources, rest: labelRest } = splitSourceLines(input.labelText)
+  const label = normalizeText(labelRest)
   const text = [ingredients, label].filter(Boolean).join(' . ')
   const tags = (input.externalTags ?? []).map((t) => t.toLowerCase())
   const reasons: string[] = []
@@ -233,6 +238,12 @@ export function classify(input: ClassificationInput): Classification {
     ...inIngredients.map((m) => ({ ...m, where: 'zutaten' as const })),
     ...inLabel.map((m) => ({ ...m, where: 'verpackung' as const })),
   ]
+  for (const src of otherSources) {
+    for (const m of findGlutenMatches(findTraceStatements(normalizeText(src.text)).rest)) {
+      if (!glutenFindings.some((f) => f.word.toLowerCase() === m.word.toLowerCase() && f.source === src.name))
+        glutenFindings.push({ ...m, where: 'quelle', source: src.name })
+    }
+  }
   const glutenSources = [...new Set(glutenFindings.flatMap((f) => f.cereal.split(', ')))]
   const glutenTraces = traces.filter((t) => findGlutenSources(t).length > 0)
   if (tags.includes('allergens:en:gluten') && !glutenSources.includes('Gluten')) {
@@ -280,6 +291,8 @@ export function classify(input: ClassificationInput): Classification {
     const where = (w: GlutenFinding['where']) => glutenFindings.filter((f) => f.where === w)
     if (where('zutaten').length) add('In der Zutatenliste stehen glutenhaltige Zutaten:', where('zutaten'))
     if (where('verpackung').length) add('Im erkannten Verpackungstext stehen glutenhaltige Wörter:', where('verpackung'))
+    for (const name of [...new Set(where('quelle').map((f) => f.source))])
+      add(`Laut ${name} stehen glutenhaltige Zutaten:`, where('quelle').filter((f) => f.source === name))
     if (where('datenbank').length) add('Open Food Facts führt Gluten als Allergen auf.')
     return { status: 'contains_gluten', reasons, explanation, glutenFindings, glutenSources, traces, confirmationValidUntil }
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   cleanLines,
+  extractCompany,
   extractIngredientBlock,
   extractWebsites,
   type OcrLine,
@@ -58,8 +59,9 @@ describe('extractIngredientBlock', () => {
     const b = extractIngredientBlock(NOODLES)!
     expect(b.trusted).toBe(false)
     expect(b.quality).toBeLessThan(0.5)
-    // Gezeigt werden nur sicher gelesene Wörter – kein Buchstabensalat wie „ochen n Durchschaittliche“
-    expect(b.text).toBe('Wasser Reismehl (91%),')
+    // Auch hier möglichst vollständig; die Warnung kommt über `trusted`
+    expect(b.text).toMatch(/Reismehl/)
+    expect(b.hints).toContain('Reismehl')
   })
 
   it('erkennt die Nährwerttabelle auch bei verschriebenen Wörtern als Ende', () => {
@@ -158,5 +160,15 @@ describe('extractWebsites', () => {
 describe('tidyRawText', () => {
   it('behält alle Wörter, entfernt nur Symbolmüll', () => {
     expect(tidyRawText([L('Weizen(30) |(90) mehl(20)'), L('|(50)')])).toBe('Weizen mehl')
+  })
+})
+
+describe('extractCompany', () => {
+  it('findet den Firmennamen im Rauschen der Texterkennung', () => {
+    expect(extractCompany('Mindestens haltbar bis\nTheodor Kattus GmbH 28\nD-49198 Dissen')).toBe('Theodor Kattus GmbH')
+    expect(extractCompany('EDEKA ZENTRALE Stiftung & Co. KG, D-22291 Hamburg, 503334')).toBe('EDEKA ZENTRALE Stiftung & Co. KG')
+  })
+  it('liefert null ohne Firmenangabe', () => {
+    expect(extractCompany('Zutaten: Reis, Salz.\nwww.bamboogarden.de')).toBeNull()
   })
 })

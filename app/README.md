@@ -52,22 +52,25 @@ Nützliche Views:
 - `npm test` – Tests der Einstufungsregeln
 - `npm run build` – Typecheck und Produktions-Build
 
-## Zutaten lesen und Hersteller-Suche
+## So läuft eine Prüfung
 
-Die Texterkennung liefert pro Wort eine Sicherheit. Die App zeigt nur sicher gelesene Wörter und
-schneidet die Zutatenliste (bis zur Nährwerttabelle) heraus (`src/lib/textClean.ts`). Der komplette
-erkannte Text wird trotzdem nach Gluten durchsucht und steht eingeklappt unter „Produkt“.
+Jede Prüfung durchläuft vier Quellen und gleicht sie ab (Details: [`src/features/scan-page/FEATURE.md`](src/features/scan-page/FEATURE.md)):
 
-Ist die Zutatenliste auf dem Foto nicht verlässlich lesbar, fragt die App der Reihe nach:
-eigene Datenbank → Open Food Facts → **Hersteller-Website** (`api/product-info.ts`, eine Vercel-Funktion,
-weil der Browser fremde Websites nicht lesen darf). Die Funktion probiert Webadressen von der Packung,
-die Produktseite aus Open Food Facts und die vermutete Hersteller-Domain, folgt passenden Links und
-sucht notfalls im Web. Eine Seite zählt nur, wenn sie zum Produkt passt (Barcode, Produktname oder
-übereinstimmende Zutatenwörter vom Foto). Eine „glutenfrei“-Aussage dort ergibt nur
-„Keine glutenhaltigen Zutaten“ – „Sicher glutenfrei lt. Hersteller“ bleibt der Anfrage beim Hersteller oder dem Logo vorbehalten.
+1. **Fotos prüfen** – Barcode und Text lesen; die Texterkennung liefert pro Wort eine Sicherheit, der Zutatenblock wird bis zur
+   Nährwerttabelle herausgeschnitten (`src/lib/textClean.ts`)
+2. **Herstellerseite** – `api/product-info.ts` (Vercel-Funktion, weil der Browser fremde Websites nicht lesen darf) probiert
+   Webadressen von der Packung, die Produktseite aus Open Food Facts und die vermutete Hersteller-Domain, blättert durch
+   Produktübersichten und sucht notfalls im Web. Eine Seite zählt nur, wenn sie zum Produkt passt (Barcode, Name oder
+   übereinstimmende Zutatenwörter). Die Funktion ruft nur öffentliche http(s)-Adressen ab
+3. **Open Food Facts** – Name, Marke, Zutaten, Allergene, Spuren, Labels
+4. **Eigene Datenbank** – ist das Produkt schon gespeichert? Hat sich die Rezeptur geändert?
+5. **Abgleich** – die Zutatenlisten werden verglichen, Unterschiede erscheinen als Hinweise; nennt eine Quelle Gluten-Getreide,
+   das anderswo fehlt, gibt es eine Warnung und die Einstufung beachtet es
 
-Die Funktion ruft nur öffentliche http(s)-Adressen ab (keine internen Netze, begrenzte Größe und Zeit).
-Lokal (`npm run dev`) wird sie automatisch mit bereitgestellt.
+Auf der Scan-Seite stehen Produkt, Hersteller und Barcode (mit Quelle), die vollständige Zutatenliste, die Hinweise und das
+Ergebnis jedes Schritts. Eine „glutenfrei“-Aussage der Hersteller-Website ergibt nur „Keine glutenhaltigen Zutaten“ – „Sicher
+glutenfrei lt. Hersteller“ bleibt der Anfrage beim Hersteller oder dem Logo vorbehalten. Lokal (`npm run dev`) wird die
+Funktion automatisch mit bereitgestellt.
 
 ## Features
 

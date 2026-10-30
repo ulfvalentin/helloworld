@@ -108,8 +108,9 @@ export function extractIngredientBlock(lines: OcrLine[]): IngredientBlock | null
   const quality = words.filter((w) => keepWord(w, MIN_WORD_CONFIDENCE)).length / words.length
   const trusted = quality >= TRUSTED_QUALITY
 
-  // Auch bei schlecht lesbarem Foto nur sichere Wörter zeigen – unsichere ergeben Buchstabensalat
-  const text = cleanLines(block, MIN_WORD_CONFIDENCE, 1)
+  // Möglichst vollständig: auch mittelsichere Wörter (ab 45 %) bleiben, nur Müll fliegt raus. Ob dem Ergebnis zu
+  // trauen ist, sagen `quality` und `trusted`, nicht die Wortauswahl.
+  const text = cleanLines(block, LENIENT_WORD_CONFIDENCE, 1)
     .join(' ')
     .replace(/(\p{L})- (\p{Ll})/gu, '$1$2') // Silbentrennung am Zeilenende
     .replace(/^\s*(zutaten|ingredients)\s*[:.]?\s*/i, '')
@@ -205,4 +206,16 @@ export function extractWebsites(text: string): string[] {
     if (!out.includes(url)) out.push(url)
   }
   return out
+}
+
+const COMPANY =
+  /((?:(?:[A-ZÄÖÜ][\p{L}.'-]*|&)\s+){1,5}(?:GmbH(?:\s*&\s*Co\.?\s*KG)?|AG|KG|OHG|e\.\s?K\.|Ltd\.?|S\.\s?A\.?|B\.\s?V\.?|SE))(?![\p{L}])/u
+
+/** Firmenname auf der Verpackung („Theodor Kattus GmbH“), meist beim Hersteller-/Inverkehrbringer-Hinweis. */
+export function extractCompany(text: string): string | null {
+  for (const line of text.split('\n')) {
+    const m = COMPANY.exec(line)
+    if (m) return m[1].replace(/\s+/g, ' ').trim()
+  }
+  return null
 }

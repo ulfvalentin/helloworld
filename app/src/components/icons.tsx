@@ -8,6 +8,9 @@ import {
   Database,
   ExternalLink,
   ImageUp,
+  Info,
+  LoaderCircle,
+  Minus,
   Pencil,
   Search,
   ShieldCheck,
@@ -34,6 +37,9 @@ export const CircleHelpIcon = icon(CircleHelp)
 export const DatabaseIcon = icon(Database)
 export const ExternalLinkIcon = icon(ExternalLink)
 export const ImageUpIcon = icon(ImageUp)
+export const InfoIcon = icon(Info)
+export const LoaderIcon = icon(LoaderCircle)
+export const MinusIcon = icon(Minus)
 export const PencilIcon = icon(Pencil)
 export const SearchIcon = icon(Search)
 export const ShieldCheckIcon = icon(ShieldCheck)

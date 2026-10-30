@@ -3,6 +3,8 @@ export interface ExternalProduct {
   barcode: string
   name: string | null
   brand: string | null
+  /** Firma hinter der Marke, falls bekannt */
+  company: string | null
   ingredientsText: string | null
   imageUrl: string | null
   /** Produktseite des Herstellers, falls in Open Food Facts hinterlegt */
@@ -18,6 +20,7 @@ const FIELDS = [
   'generic_name',
   'link',
   'brands',
+  'brand_owner',
   'ingredients_text_de',
   'ingredients_text',
   'labels_tags',
@@ -42,7 +45,9 @@ export async function lookupOpenFoodFacts(barcode: string): Promise<ExternalProd
     barcode,
     name: p.product_name_de || p.product_name || p.generic_name_de || p.generic_name || null,
     brand: p.brands || null,
-    ingredientsText: p.ingredients_text_de || p.ingredients_text || null,
+    company: p.brand_owner || null,
+    // Open Food Facts hebt Allergene mit _Unterstrichen_ hervor
+    ingredientsText: (p.ingredients_text_de || p.ingredients_text || '').replace(/_/g, '').trim() || null,
     imageUrl: p.image_front_small_url || null,
     link: typeof p.link === 'string' && /^https?:\/\//.test(p.link) ? p.link : null,
     tags: [

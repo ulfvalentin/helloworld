@@ -10,7 +10,8 @@ import { Scanner } from './components/Scanner'
 import { ScanPage } from './features/scan-page'
 import { repository } from './lib/repository'
 import { supabase } from './lib/supabase'
-import { stripProduct, useScanFlow } from './lib/useScanFlow'
+import { draftFromProduct } from './lib/runCheck'
+import { useScanFlow } from './lib/useScanFlow'
 import type { Draft, Product } from './types'
 
 type View =
@@ -72,20 +73,7 @@ export default function App() {
             product={view.product}
             onChange={(product) => setView({ kind: 'product', product })}
             onBack={() => setView({ kind: 'list' })}
-            onEdit={() =>
-              setView({
-                kind: 'draft',
-                draft: {
-                  input: stripProduct(view.product),
-                  existing: view.product,
-                  ocrText: null,
-                  sources: ['Eigene Datenbank'],
-                  ingredients: { source: 'datenbank', trusted: true, url: null, lookup: 'skipped', message: null },
-                  websites: [],
-                  hints: [],
-                },
-              })
-            }
+            onEdit={() => setView({ kind: 'draft', draft: draftFromProduct(view.product) })}
           />
         )}
       </main>

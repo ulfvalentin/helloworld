@@ -1,7 +1,7 @@
+import { ExternalLinkIcon, TriangleAlertIcon, XIcon } from '../../components/icons'
 import { findGlutenSources, normalizeText } from '../../lib/classify'
 import { parseIngredients } from '../../lib/textClean'
-import type { IngredientInfo, IngredientSource } from '../../types'
-import { ExternalLinkIcon, TriangleAlertIcon, XIcon } from '../../components/icons'
+import type { IngredientInfo, IngredientSource, Reconciliation } from '../../types'
 
 const SOURCE_TITLE: Record<IngredientSource, string> = {
   foto: 'Zutaten vom Foto',
@@ -27,33 +27,36 @@ function Problem({ title, items }: { title: string; items: string[] }) {
   )
 }
 
+function ItemList({ items }: { items: string[] }) {
+  return (
+    <ul>
+      {items.map((item, i) => (
+        <li key={`${item}-${i}`} className={findGlutenSources(normalizeText(item)).length > 0 ? 'gluten' : undefined}>
+          {item}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 /**
- * Zutatenliste im Design des Hinweiskastens: Titel, darunter Aufzählung. Es stehen nur Zutaten drin
- * (keine Zubereitung, Lagerung, Fußnoten oder Spurenhinweise – die erscheinen in der Begründung).
- * Ist das Foto schlecht lesbar, steht dort stattdessen nur das rote X mit dem Hinweis.
+ * Zutatenliste im Design des Hinweiskastens: Titel (Quelle), darunter die vollständige Aufzählung. Es stehen nur
+ * Zutaten drin (keine Zubereitung, Lagerung, Fußnoten oder Spurenhinweise – die stehen unter „Hinweise“).
+ * Ist die Liste nur unsicher vom Foto gelesen, steht darüber das rote X mit dem Hinweis, die Liste bleibt aber sichtbar.
  */
 export function IngredientsSection({
   text,
   info,
   edited,
+  reconciliation,
 }: {
   text: string | null
   info: IngredientInfo
   edited: boolean
+  reconciliation?: Reconciliation
 }) {
   const items = text ? parseIngredients(text).items : []
 
-  if (!edited && info.source !== null && !info.trusted)
-    return (
-      <Problem
-        title="Fotos schwer lesbar, die Zutaten sind unsicher"
-        items={[
-          'Zutatenliste einzeln und aus der Nähe fotografieren',
-          'oder Produktnamen eintragen und „Hersteller-Website prüfen“ tippen',
-          'oder die Zutaten selbst korrigieren',
-        ]}
-      />
-    )
   if (items.length === 0)
     return (
       <Problem
@@ -63,6 +66,26 @@ export function IngredientsSection({
           'oder die Zutaten selbst eintragen („Zutaten korrigieren“)',
         ]}
       />
+    )
+
+  if (!edited && info.source !== null && !info.trusted)
+    return (
+      <div className="stack">
+        <Problem
+          title="Fotos schwer lesbar, die Zutaten sind unsicher"
+          items={[
+            'Zutatenliste einzeln und aus der Nähe fotografieren',
+            'oder Produktnamen eintragen und „Hersteller-Website prüfen“ tippen',
+            'oder die Zutaten selbst korrigieren',
+          ]}
+        />
+        <div className="notice-box">
+          <p className="box-title">
+            <strong>Vom Foto gelesen (unsicher)</strong>
+          </p>
+          <ItemList items={items} />
+        </div>
+      </div>
     )
 
   const similar = !edited && info.exact === false
@@ -79,16 +102,10 @@ export function IngredientsSection({
         </a>
       )}
       {similar && <p className="box-note">Passendes, aber nicht eindeutig dasselbe Produkt – bitte mit der Packung vergleichen.</p>}
-      <ul>
-        {items.map((item, i) => {
-          const gluten = findGlutenSources(normalizeText(item)).length > 0
-          return (
-            <li key={`${item}-${i}`} className={gluten ? 'gluten' : undefined}>
-              {item}
-            </li>
-          )
-        })}
-      </ul>
+      {!edited && reconciliation && (reconciliation.status === 'consistent' || reconciliation.status === 'differs') && (
+        <p className="box-note">{reconciliation.summary}</p>
+      )}
+      <ItemList items={items} />
     </div>
   )
 }

@@ -1,3 +1,5 @@
+import type { CheckContext } from './lib/runCheck'
+
 export type GlutenStatus =
   // Die Schlüssel entsprechen den Werten der Datenbank (enum gluten_status) und bleiben bewusst
   // stabil; die sichtbaren Namen stehen in STATUS_META (classify.ts).
@@ -45,7 +47,9 @@ export type ProductInput = Omit<
 
 export type ConfirmationInput = Omit<ManufacturerConfirmation, 'id' | 'product_id' | 'created_at'>
 
+/** Die vier Quellen jeder Prüfung. */
 export type IngredientSource = 'foto' | 'datenbank' | 'openfoodfacts' | 'hersteller'
+export type SourceId = IngredientSource
 
 /** Woher stammt die Zutatenliste, und wie verlässlich ist sie? */
 export interface IngredientInfo {
@@ -60,6 +64,56 @@ export interface IngredientInfo {
   message: string | null
 }
 
+/** Eine Zutatenliste aus einer der Quellen. */
+export interface SourceList {
+  source: SourceId
+  text: string
+  items: string[]
+  /** Foto: „unsicher“, wenn viele Wörter schlecht lesbar waren */
+  quality: 'gut' | 'unsicher'
+  url?: string | null
+  /** Hersteller-Website: false, wenn nicht nachweislich dasselbe Produkt */
+  exact?: boolean
+}
+
+/** Was eine Quelle bei der Prüfung ergeben hat. */
+export interface StepReport {
+  source: SourceId
+  status: 'found' | 'none' | 'error' | 'skipped'
+  summary: string
+  url?: string | null
+}
+
+export interface CheckNote {
+  level: 'warn' | 'info'
+  text: string
+}
+
+/** Wer/was ist das Produkt – mit der Quelle jeder Angabe. */
+export interface Identity {
+  name: string | null
+  brand: string | null
+  /** Firma laut Verpackung/Open Food Facts („Theodor Kattus GmbH“) */
+  company: string | null
+  barcode: string | null
+  from: { name?: string; brand?: string; company?: string; barcode?: string }
+}
+
+export interface Reconciliation {
+  status: 'consistent' | 'differs' | 'single' | 'none'
+  summary: string
+}
+
+/** Ergebnis der Prüfung über alle Quellen. */
+export interface CheckReport {
+  identity: Identity
+  steps: StepReport[]
+  lists: SourceList[]
+  chosen: SourceId | null
+  reconciliation: Reconciliation
+  notes: CheckNote[]
+}
+
 /** Ergebnis der Analyse, bevor es gespeichert wird. */
 export interface Draft {
   input: ProductInput
@@ -72,4 +126,7 @@ export interface Draft {
   websites: string[]
   /** Sicher gelesene Zutatenwörter, um das Produkt im Netz wiederzuerkennen */
   hints: string[]
+  check: CheckReport
+  /** Gesammelte Rohdaten der Prüfung: Daraus lässt sich der Abgleich neu berechnen (z. B. nach „Hersteller-Website prüfen“) */
+  context: CheckContext
 }

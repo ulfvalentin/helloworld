@@ -2,10 +2,14 @@ import { useMemo, useState } from 'react'
 import { PencilIcon, SearchIcon } from '../../components/icons'
 import { Verdict } from '../../components/Verdict'
 import { classify } from '../../lib/classify'
-import { applyManufacturer, lookupManufacturer } from '../../lib/manufacturer'
+import { lookupManufacturer } from '../../lib/manufacturer'
 import { repository } from '../../lib/repository'
-import type { Draft, IngredientInfo, Product, ProductInput } from '../../types'
+import { assembleDraft } from '../../lib/runCheck'
+import type { CheckReport, Draft, IngredientInfo, Product, ProductInput } from '../../types'
+import { CheckSteps } from './CheckSteps'
 import { IngredientsSection } from './IngredientsSection'
+import { Notes } from './Notes'
+import { ProductSummary } from './ProductSummary'
 
 /**
  * Scan-Seite: das Ergebnis nach dem Scan. Einstufung mit Begründung, Zutaten, Produktangaben und Speichern.
@@ -22,6 +26,8 @@ export function ScanPage({
 }) {
   const [input, setInput] = useState<ProductInput>(draft.input)
   const [ingredients, setIngredients] = useState<IngredientInfo>(draft.ingredients)
+  const [check, setCheck] = useState<CheckReport>(draft.check)
+  const [context, setContext] = useState(draft.context)
   const [editing, setEditing] = useState(false)
   // Hat der Nutzer die Zutaten selbst eingegeben/korrigiert, gelten sie als geprüft
   const [edited, setEdited] = useState(false)
@@ -46,6 +52,7 @@ export function ScanPage({
 
   const canSearch = Boolean(input.name || input.barcode || draft.hints.length >= 3)
 
+  /** „Hersteller-Website prüfen“: sucht erneut mit den (ggf. korrigierten) Angaben und berechnet den Abgleich neu. */
   async function checkManufacturer() {
     setLooking(true)
     const found = await lookupManufacturer({
@@ -55,12 +62,25 @@ export function ScanPage({
       urls: draft.websites,
       hints: draft.hints,
     })
-    if (!found) setIngredients({ ...ingredients, lookup: 'unavailable', message: 'Die Suche ist gerade nicht erreichbar.' })
-    else if (found.found && found.ingredients) {
-      setInput(applyManufacturer(input, found))
-      setEdited(false)
-      setIngredients({ source: 'hersteller', trusted: true, url: found.sourceUrl, exact: found.exact, lookup: 'found', message: found.message })
-    } else setIngredients({ ...ingredients, lookup: 'not-found', message: found.message })
+    // Angaben, die der Nutzer geändert hat, haben Vorrang
+    const next = assembleDraft(
+      { ...context, code: input.barcode ?? context.code, searched: true, manufacturer: found },
+      {
+        name: input.name !== check.identity.name ? input.name : null,
+        brand: input.brand !== (check.identity.brand ?? check.identity.company) ? input.brand : null,
+      },
+    )
+    setContext(next.context)
+    setCheck(next.check)
+    setIngredients(next.ingredients)
+    setEdited(false)
+    setInput((prev) => ({
+      ...prev,
+      name: prev.name ?? next.input.name,
+      brand: prev.brand ?? next.input.brand,
+      ingredients_text: next.input.ingredients_text,
+      label_text: next.input.label_text,
+    }))
     setLooking(false)
   }
 
@@ -84,7 +104,7 @@ export function ScanPage({
   return (
     <div className="stack" aria-label="Scan-Seite" data-page="scan-page">
       <Verdict result={result} />
-      {draft.sources.length > 0 && <p className="muted small sources">Quellen: {draft.sources.join(', ')}</p>}
+      <ProductSummary input={input} identity={check.identity} />
 
       <div className="card stack">
         <h3>Zutaten</h3>
@@ -99,7 +119,12 @@ export function ScanPage({
             aria-label="Zutaten"
           />
         ) : (
-          <IngredientsSection text={input.ingredients_text} info={ingredients} edited={edited} />
+          <IngredientsSection
+            text={input.ingredients_text}
+            info={ingredients}
+            edited={edited}
+            reconciliation={check.reconciliation}
+          />
         )}
         <div className="row">
           <button type="button" onClick={() => setEditing(!editing)}>
@@ -151,15 +176,18 @@ export function ScanPage({
         )}
       </div>
 
+      <Notes notes={check.notes} />
+      {!context.edit && <CheckSteps check={check} />}
+
       <div className="card stack">
-        <h3>Produkt</h3>
+        <h3>Produkt bearbeiten</h3>
         <div className="row">
           <label>
             Produkt
             <input value={input.name ?? ''} onChange={(e) => set('name', e.target.value || null)} />
           </label>
           <label>
-            Marke
+            Hersteller / Marke
             <input value={input.brand ?? ''} onChange={(e) => set('brand', e.target.value || null)} />
           </label>
         </div>
