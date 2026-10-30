@@ -154,11 +154,7 @@ describe('classify', () => {
     expect(classify({ now }).status).toBe('unknown')
   })
 
-  it('Open-Food-Facts-Tags und Verpackungsaussagen entscheiden nichts, nur die Zutatenliste', () => {
-    expect(classify({ externalTags: ['labels:en:gluten-free'], ingredientsText: 'Reis', now }).status).toBe('unverified_gluten_free')
-    expect(classify({ externalTags: ['traces:en:gluten'], ingredientsText: 'Reis', now }).status).toBe('unverified_gluten_free')
-    expect(classify({ externalTags: ['allergens:en:gluten'], ingredientsText: 'Reis', now }).status).toBe('unverified_gluten_free')
-    expect(classify({ externalTags: ['allergens:en:gluten'], now }).status).toBe('unknown')
+  it('Verpackungsaussagen entscheiden nichts, nur die Zutatenliste', () => {
     expect(classify({ labelText: 'Kann Spuren von Weizen enthalten. Glutenfrei', now }).status).toBe('unknown')
   })
 
@@ -225,10 +221,10 @@ describe('Begründung mit gefundenen Wörtern', () => {
   })
 
   it('Gluten in der Liste einer anderen Quelle, aber nicht in der gewählten: Widerspruch → unbekannt', () => {
-    const r = classify({ ingredientsText: 'Reis, Salz', labelText: 'Quelle Open Food Facts: Weizenmehl, Salz', now })
+    const r = classify({ ingredientsText: 'Reis, Salz', labelText: 'Quelle Hersteller-Website: Weizenmehl, Salz', now })
     expect(r.status).toBe('unknown')
-    expect(r.explanation[0].text).toMatch(/Laut Open Food Facts/)
-    expect(r.glutenFindings).toEqual([{ word: 'Weizenmehl', cereal: 'Weizen', where: 'quelle', source: 'Open Food Facts' }])
+    expect(r.explanation[0].text).toMatch(/Laut Hersteller-Website/)
+    expect(r.glutenFindings).toEqual([{ word: 'Weizenmehl', cereal: 'Weizen', where: 'quelle', source: 'Hersteller-Website' }])
   })
 
   it('Spuren: nennt das gefundene Wort im Spurenhinweis', () => {

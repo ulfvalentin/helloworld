@@ -23,7 +23,6 @@ export function ProductDetail({
         ingredientsText: product.ingredients_text,
         labelText: product.label_text,
         certifiedLabel: product.certified_label,
-        externalTags: product.external_tags,
         confirmations: product.confirmations,
       }),
     [product],

@@ -47,7 +47,7 @@ export function CheckSteps({ check }: { check: CheckReport }) {
         <li className={r.status === 'differs' ? 'result-warn' : 'result-found'}>
           <ReconIcon />
           <span>
-            <strong>5. {STEP_LABELS.abgleich}</strong>
+            <strong>{check.steps.length + 1}. {STEP_LABELS.abgleich}</strong>
             <small>{r.summary}</small>
           </span>
         </li>

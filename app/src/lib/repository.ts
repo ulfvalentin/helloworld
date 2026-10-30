@@ -19,7 +19,6 @@ export function withStatus<T extends Omit<Product, 'status' | 'status_reasons'>>
     ingredientsText: p.ingredients_text,
     labelText: p.label_text,
     certifiedLabel: p.certified_label,
-    externalTags: p.external_tags,
     confirmations: p.confirmations,
   })
   return { ...p, status: c.status, status_reasons: c.reasons }
@@ -39,7 +38,7 @@ function fromRow(row: Record<string, unknown>): Product {
   const confirmations = ((row.confirmations as ManufacturerConfirmation[]) ?? []).sort((a, b) =>
     b.confirmed_at.localeCompare(a.confirmed_at),
   )
-  return withStatus({ ...(row as unknown as Product), external_tags: (row.external_tags as string[]) ?? [], confirmations })
+  return withStatus({ ...(row as unknown as Product), confirmations })
 }
 
 function supabaseRepository(): Repository {

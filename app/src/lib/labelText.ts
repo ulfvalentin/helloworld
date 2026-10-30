@@ -1,12 +1,12 @@
 import type { SourceId, SourceList } from '../types'
 import { SOURCE_NAME } from './sources'
 
-/** Zeilen dieser Form führen die Zutaten einer weiteren Quelle (Hersteller-Website, Open Food Facts). */
+/** Zeilen dieser Form führen die Zutaten einer weiteren Quelle (z. B. Hersteller-Website). */
 export const SOURCE_LINE = /^Quelle ([^:\n]+):\s*(.+)$/
 
 /**
  * Text, der mit dem Produkt gespeichert und auf Gluten durchsucht wird: der erkannte Text vom Foto, die Zutaten
- * der übrigen externen Quellen („Quelle Open Food Facts: …“) und Gluten-Aussagen der Hersteller-Website.
+ * der übrigen Quellen („Quelle Hersteller-Website: …“) und Gluten-Aussagen der Hersteller-Website.
  * Nennt irgendeine Quelle Gluten-Zutaten, zählt das – bei Zöliakie ist ein Fehlalarm besser als ein übersehenes Gluten.
  */
 export function buildLabelText(o: {

@@ -2,7 +2,7 @@
 
 Web-App (läuft im Handy-Browser), um schnell zu erkennen, ob ein Lebensmittel Gluten enthält.
 Foto aufnehmen → Text und Barcode erkennen → Abgleich mit eigener Supabase-Datenbank und
-Open Food Facts → Einstufung nach unseren Regeln. Jedes eingescannte Produkt landet in der
+Hersteller-Website → Einstufung nach unseren Regeln. Jedes eingescannte Produkt landet in der
 gemeinsamen Datenbank, die so mit der Zeit wächst.
 
 ## Einstufung
@@ -54,17 +54,16 @@ Nützliche Views:
 
 ## So läuft eine Prüfung
 
-Jede Prüfung durchläuft vier Quellen und gleicht sie ab (Details: [`src/features/scan-page/FEATURE.md`](src/features/scan-page/FEATURE.md)):
+Jede Prüfung durchläuft drei Quellen und gleicht sie ab (Details: [`src/features/scan-page/FEATURE.md`](src/features/scan-page/FEATURE.md)):
 
 1. **Fotos prüfen** – Barcode und Text lesen; die Texterkennung liefert pro Wort eine Sicherheit, der Zutatenblock wird bis zur
    Nährwerttabelle herausgeschnitten (`src/lib/textClean.ts`)
 2. **Herstellerseite** – `api/product-info.ts` (Vercel-Funktion, weil der Browser fremde Websites nicht lesen darf) probiert
-   Webadressen von der Packung, die Produktseite aus Open Food Facts und die vermutete Hersteller-Domain, blättert durch
+   Webadressen von der Packung und die vermutete Hersteller-Domain, blättert durch
    Produktübersichten und sucht notfalls im Web. Eine Seite zählt nur, wenn sie zum Produkt passt (Barcode, Name oder
    übereinstimmende Zutatenwörter). Die Funktion ruft nur öffentliche http(s)-Adressen ab
-3. **Open Food Facts** – Name, Marke, Zutaten, Allergene, Spuren, Labels
-4. **Eigene Datenbank** – ist das Produkt schon gespeichert? Hat sich die Rezeptur geändert?
-5. **Abgleich** – die Zutatenlisten werden verglichen, Unterschiede erscheinen als Hinweise; nennt eine Quelle Gluten-Getreide,
+3. **Eigene Datenbank** – ist das Produkt schon gespeichert? Hat sich die Rezeptur geändert?
+4. **Abgleich** – die Zutatenlisten werden verglichen, Unterschiede erscheinen als Hinweise; nennt eine Quelle Gluten-Getreide,
    das anderswo fehlt, gibt es eine Warnung und die Einstufung beachtet es
 
 Auf der Scan-Seite stehen Produkt, Hersteller und Barcode (mit Quelle), die vollständige Zutatenliste, die Hinweise und das

@@ -6,7 +6,6 @@ import type { IngredientInfo, IngredientSource, Reconciliation } from '../../typ
 const SOURCE_TITLE: Record<IngredientSource, string> = {
   foto: 'Zutaten vom Foto',
   datenbank: 'Zutaten aus eurer Datenbank',
-  openfoodfacts: 'Zutaten aus Open Food Facts',
   hersteller: 'Zutaten von der Hersteller-Website',
 }
 
