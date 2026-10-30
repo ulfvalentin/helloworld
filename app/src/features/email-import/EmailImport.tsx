@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckIcon, MailIcon } from '../../components/icons'
+import { CheckIcon, ImageUpIcon, MailIcon } from '../../components/icons'
 import { StatusBadge } from '../../components/StatusBadge'
 import { repository } from '../../lib/repository'
 import { EMPTY_INPUT } from '../../lib/runCheck'
@@ -115,21 +115,17 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
 
   const unclear = parsed?.verdict === 'unclear'
   return (
-    <div className="stack" data-page="email-import">
-      <div className="card stack">
-        <h2>E-Mail vom Hersteller</h2>
-        <ol className="steps">
-          <li><strong>E-Mail-Text hier einfügen</strong><span className="muted small">Auch eine weitergeleitete Mail.</span></li>
-          <li><strong>Oder eine .eml-Datei hochladen</strong></li>
-          <li><strong>Erkanntes prüfen und speichern</strong></li>
-        </ol>
+    <div className="page stack" data-page="email-import">
+      <div className="stack">
+        <h1>E-Mail vom Hersteller</h1>
+        <p className="muted">Füge die Antwort ein oder lade eine .eml-Datei hoch – danach prüfst du das Erkannte.</p>
         <textarea rows={8} value={raw} onChange={(e) => setRaw(e.target.value)} placeholder="E-Mail-Text einfügen …" aria-label="E-Mail-Text" />
         <div className="photo-buttons">
-          <button className="photo-button" type="button" onClick={() => read(raw)} disabled={!raw.trim()}>
+          <button className={parsed ? 'photo-button secondary' : 'photo-button'} type="button" onClick={() => read(raw)} disabled={!raw.trim()}>
             <MailIcon /> E-Mail auslesen
           </button>
           <label className="photo-button secondary">
-            Datei hochladen
+            <ImageUpIcon /> Datei hochladen
             <input type="file" accept=".eml,.txt,message/rfc822,text/plain" onChange={onFile} hidden />
           </label>
         </div>

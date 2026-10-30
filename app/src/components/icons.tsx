@@ -13,6 +13,7 @@ import {
   Mail,
   Minus,
   Pencil,
+  ScanLine,
   Search,
   ShieldCheck,
   TriangleAlert,
@@ -27,7 +28,7 @@ type IconComponent = ComponentType<LucideProps>
 
 function icon(Base: IconComponent): IconComponent {
   return function Icon({ className, ...props }) {
-    return <Base strokeWidth={2} aria-hidden="true" className={`icon${className ? ` ${className}` : ''}`} {...props} />
+    return <Base size="1.15em" strokeWidth={2} aria-hidden="true" className={`icon${className ? ` ${className}` : ''}`} {...props} />
   }
 }
 
@@ -43,6 +44,7 @@ export const LoaderIcon = icon(LoaderCircle)
 export const MailIcon = icon(Mail)
 export const MinusIcon = icon(Minus)
 export const PencilIcon = icon(Pencil)
+export const ScanLineIcon = icon(ScanLine)
 export const SearchIcon = icon(Search)
 export const ShieldCheckIcon = icon(ShieldCheck)
 export const TriangleAlertIcon = icon(TriangleAlert)

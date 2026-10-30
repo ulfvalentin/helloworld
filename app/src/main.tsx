@@ -1,9 +1,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-// Archivo self-hosted statt Google Fonts (DSGVO): Fließtext 400–600, Überschriften 800
+// Archivo self-hosted statt Google Fonts (DSGVO): Fließtext 400–600, Titel 700–800, Urteil 900
 import '@fontsource/archivo/400.css'
 import '@fontsource/archivo/600.css'
+import '@fontsource/archivo/700.css'
 import '@fontsource/archivo/800.css'
+import '@fontsource/archivo/900.css'
 import App from './App'
 import './styles.css'
 
