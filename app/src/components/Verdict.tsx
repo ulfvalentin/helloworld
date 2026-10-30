@@ -1,30 +1,32 @@
 import { STATUS_META, type Classification } from '../lib/classify'
-import type { GlutenStatus } from '../types'
-import { CircleCheckIcon, CircleHelpIcon, ShieldCheckIcon, TriangleAlertIcon, WheatIcon } from './icons'
-
-const STATUS_ICON: Record<GlutenStatus, typeof WheatIcon> = {
-  verified_gluten_free: ShieldCheckIcon,
-  unverified_gluten_free: CircleCheckIcon,
-  may_contain_gluten: TriangleAlertIcon,
-  contains_gluten: WheatIcon,
-  unknown: CircleHelpIcon,
-}
+import { XIcon } from './icons'
+import { STATUS_ICON } from './statusIcons'
 
 /**
- * Ergebnis der Einstufung: ein Hinweisfeld (bewusst kein Button: kein gefüllter Block, farbiger Streifen links)
- * und darunter die Begründung mit den gefundenen Wörtern.
+ * Ergebnis-Banner (volle Breite, Farbe der Statusstufe, Symbolkreis, Urteil, eine Unterzeile) und darunter die
+ * Beleg-Karte mit den gefundenen Wörtern. Das Urteil wird per aria-live angesagt.
  */
-export function Verdict({ result }: { result: Classification }) {
+export function Verdict({ result, onClose }: { result: Classification; onClose?: () => void }) {
   const meta = STATUS_META[result.status]
   const Icon = STATUS_ICON[result.status]
   return (
-    <section className={`verdict verdict-${meta.tone}`} aria-label="Einstufung">
-      <p className="verdict-head" role="status">
-        <Icon className="verdict-icon" />
-        <span>{meta.label}</span>
-      </p>
-      <div className="verdict-why">
-        <h3>Warum?</h3>
+    <>
+      <section className={`banner tone-${meta.tone}`} aria-label="Einstufung">
+        {onClose && (
+          <button type="button" className="icon-button banner-close" aria-label="Schließen" onClick={onClose}>
+            <XIcon size={22} />
+          </button>
+        )}
+        <span className="banner-icon" aria-hidden="true">
+          <Icon size={30} strokeWidth={2.6} />
+        </span>
+        <div role="status" aria-live="polite">
+          <p className="verdict">{meta.label}</p>
+          <p className="banner-sub">{meta.sub}</p>
+        </div>
+      </section>
+      <section className="card evidence" aria-label="Begründung">
+        <h3 className="label">Warum?</h3>
         <ul>
           {result.explanation.map((item, i) => (
             <li key={i}>
@@ -32,17 +34,17 @@ export function Verdict({ result }: { result: Classification }) {
               {item.words && item.words.length > 0 && (
                 <span className="found-words">
                   {item.words.map((w) => (
-                    <b key={w.word} className="found">
+                    <mark key={w.word} className={`tone-${meta.tone === 'safe' ? 'warn' : meta.tone}`}>
                       {w.word}
                       {w.cereal.toLowerCase() !== w.word.toLowerCase() && <small> ({w.cereal})</small>}
-                    </b>
+                    </mark>
                   ))}
                 </span>
               )}
             </li>
           ))}
         </ul>
-      </div>
-    </section>
+      </section>
+    </>
   )
 }

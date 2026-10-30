@@ -3,13 +3,6 @@ import type { ScanFlow } from '../lib/useScanFlow'
 import { CheckProgress } from './CheckProgress'
 import { PhotoButtons } from './PhotoButtons'
 
-const STEPS = [
-  { title: 'Vorderseite fotografieren', hint: 'Produktname und Logo sollen zu sehen sein.' },
-  { title: 'Zutatenliste fotografieren', hint: 'Einzeln, aus der Nähe, gerade und scharf.' },
-  { title: 'Barcode fotografieren', hint: 'Ohne Spiegelung – oder unten eintippen.' },
-  { title: 'Unten auf „Prüfen“ tippen', hint: null },
-]
-
 /** Scan-Bildschirm. Die Auswertung startet der „Prüfen“-Button in der unteren Leiste (siehe App). */
 export function Scanner({ scan }: { scan: ScanFlow }) {
   const { files, setFiles, barcode, setBarcode, busy, steps, error } = scan
@@ -29,17 +22,11 @@ export function Scanner({ scan }: { scan: ScanFlow }) {
   }, [files])
 
   return (
-    <div className="card stack">
-      <h2>Lebensmittel prüfen</h2>
-      <ol className="steps">
-        {STEPS.map((s) => (
-          <li key={s.title}>
-            <strong>{s.title}</strong>
-            {s.hint && <span className="muted small">{s.hint}</span>}
-          </li>
-        ))}
-      </ol>
-      <p className="muted small">Mehrere Fotos sind möglich.</p>
+    <div className="page stack">
+      <h1>Was möchtest du prüfen?</h1>
+      <p className="muted">
+        Fotografiere Vorderseite, Zutatenliste und Barcode – danach unten auf „Prüfen“ tippen.
+      </p>
 
       <PhotoButtons onPick={(picked) => setFiles((prev) => [...prev, ...picked])} disabled={busy} />
 
@@ -48,8 +35,14 @@ export function Scanner({ scan }: { scan: ScanFlow }) {
           {files.map((f, i) => (
             <figure key={`${f.name}-${f.lastModified}-${i}`}>
               <img src={previews[i]} alt={`Foto ${i + 1}`} />
-              <button type="button" className="link" onClick={() => setFiles(files.filter((_, j) => j !== i))} disabled={busy}>
-                entfernen
+              <button
+                type="button"
+                className="text-button"
+                aria-label={`Foto ${i + 1} entfernen`}
+                onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                disabled={busy}
+              >
+                Entfernen
               </button>
             </figure>
           ))}
@@ -57,7 +50,7 @@ export function Scanner({ scan }: { scan: ScanFlow }) {
       )}
 
       <label>
-        Barcode (optional, wird sonst aus dem Foto gelesen)
+        Barcode eintippen (optional)
         <input
           inputMode="numeric"
           value={barcode}

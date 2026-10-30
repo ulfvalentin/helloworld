@@ -11,6 +11,14 @@ export function CheckProgress({ steps }: { steps: ProgressStep[] }) {
   }, [])
   return (
     <div className="check-progress" role="status" aria-live="polite" ref={ref}>
+      <p className="muted small">
+        Schritt {Math.min(steps.filter((s) => s.state === 'fertig').length + 1, steps.length)} von {steps.length}
+      </p>
+      <div className="segments" aria-hidden="true">
+        {steps.map((s) => (
+          <span key={s.id} className={s.state === 'wartet' ? '' : 'on'} />
+        ))}
+      </div>
       <h3>Prüfung läuft</h3>
       <ol className="check-list">
         {steps.map((s, i) => (

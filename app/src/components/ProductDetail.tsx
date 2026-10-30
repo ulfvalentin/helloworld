@@ -31,9 +31,6 @@ export function ProductDetail({
   const validUntil = result.confirmationValidUntil
   return (
     <div className="stack">
-      <button className="link" onClick={onBack}>
-        ← Zurück
-      </button>
       <div className="card result">
         {product.image_url && <img className="product-image" src={product.image_url} alt="" />}
         <h2>{product.name ?? 'Unbenanntes Produkt'}</h2>
@@ -42,7 +39,7 @@ export function ProductDetail({
         </p>
         <button onClick={onEdit}>Angaben bearbeiten</button>
       </div>
-      <Verdict result={result} />
+      <Verdict result={result} onClose={onBack} />
 
       <div className="card stack">
         <h3>Herstellerbestätigungen</h3>

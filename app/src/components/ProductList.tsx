@@ -26,10 +26,13 @@ export function ProductList({ onOpen }: { onOpen: (p: Product) => void }) {
 
   const shown = products?.filter((p) => !filter || p.status === filter) ?? []
   return (
-    <div className="card stack">
-      <h2>Datenbank</h2>
+    <div className="page stack">
+      <h1>Datenbank</h1>
       <div className="row">
-        <input placeholder="Suche nach Name, Marke, Barcode" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <label>
+          Suche
+          <input placeholder="Name, Marke oder Barcode" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
         <select value={filter} onChange={(e) => setFilter(e.target.value as GlutenStatus | '')}>
           <option value="">Alle</option>
           {Object.entries(STATUS_META).map(([k, v]) => (
@@ -41,9 +44,13 @@ export function ProductList({ onOpen }: { onOpen: (p: Product) => void }) {
       </div>
       {error && <p className="error">{error}</p>}
       {products === null ? (
-        <p className="muted">Lade …</p>
+        <div className="skeletons" role="status" aria-label="Produkte werden geladen …">
+          <span className="skeleton" />
+          <span className="skeleton" />
+          <span className="skeleton" />
+        </div>
       ) : shown.length === 0 ? (
-        <p className="muted">Noch keine Produkte – scanne dein erstes Lebensmittel.</p>
+        <p className="muted">Keine Produkte gefunden. Prüfe jetzt ein Lebensmittel mit „Prüfen“.</p>
       ) : (
         <ul className="product-list">
           {shown.map((p) => (
@@ -51,7 +58,7 @@ export function ProductList({ onOpen }: { onOpen: (p: Product) => void }) {
               <button onClick={() => onOpen(p)}>
                 <span>
                   <strong>{p.name ?? 'Unbenannt'}</strong>
-                  <span className="muted small"> {p.brand}</span>
+                  {p.brand && <span className="muted small"> {p.brand}</span>}
                 </span>
                 <StatusBadge status={p.status} />
               </button>

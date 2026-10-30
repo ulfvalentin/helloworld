@@ -325,10 +325,15 @@ export function classify(input: ClassificationInput): Classification {
   return { status: 'unknown', reasons, explanation, glutenFindings, glutenSources, traces, confirmationValidUntil }
 }
 
-export const STATUS_META: Record<GlutenStatus, { label: string; short: string; tone: string }> = {
-  verified_gluten_free: { label: 'Sicher glutenfrei lt. Hersteller', short: 'Sicher', tone: 'green' },
-  unverified_gluten_free: { label: 'Keine glutenhaltigen Zutaten', short: 'Keine Gluten-Zutat', tone: 'lime' },
-  may_contain_gluten: { label: 'Kann Spuren von Gluten enthalten', short: 'Spuren', tone: 'orange' },
-  contains_gluten: { label: 'Enthält Gluten', short: 'Gluten', tone: 'red' },
-  unknown: { label: 'Unbekannt', short: '?', tone: 'grey' },
+/**
+ * Anzeige je Einstufung. `tone` ordnet die fünf Einstufungen den drei Statusfarben der Marke zu
+ * (safe / warn / danger, siehe public/brand/BRAND.md); `sub` ist die Unterzeile im Ergebnis-Banner.
+ * Unsichere Ergebnisse sind nie „safe“: Unbekannt läuft unter „warn“.
+ */
+export const STATUS_META: Record<GlutenStatus, { label: string; short: string; tone: 'safe' | 'warn' | 'danger'; sub: string }> = {
+  verified_gluten_free: { label: 'Sicher glutenfrei lt. Hersteller', short: 'Sicher', tone: 'safe', sub: 'Der Hersteller hat Glutenfreiheit bestätigt' },
+  unverified_gluten_free: { label: 'Keine glutenhaltigen Zutaten', short: 'Keine Gluten-Zutat', tone: 'safe', sub: 'Kreuzkontamination ist nicht ausgeschlossen' },
+  may_contain_gluten: { label: 'Kann Spuren von Gluten enthalten', short: 'Spuren', tone: 'warn', sub: 'Bitte Verpackung selbst prüfen' },
+  contains_gluten: { label: 'Enthält Gluten', short: 'Gluten', tone: 'danger', sub: 'Nicht geeignet bei Zöliakie' },
+  unknown: { label: 'Unbekannt', short: 'Unbekannt', tone: 'warn', sub: 'Bitte Verpackung selbst prüfen' },
 }

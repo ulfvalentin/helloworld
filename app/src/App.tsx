@@ -4,7 +4,7 @@ import { AccountMenu } from './components/AccountMenu'
 import { Login } from './components/Login'
 import { LogoHorizontal, LogoStacked } from './components/Logo'
 import { ProductDetail } from './components/ProductDetail'
-import { DatabaseIcon, MailIcon } from './components/icons'
+import { DatabaseIcon, MailIcon, ScanLineIcon } from './components/icons'
 import { ProductList } from './components/ProductList'
 import { Scanner } from './components/Scanner'
 import { EmailImport } from './features/email-import'
@@ -88,20 +88,30 @@ export default function App() {
         )}
       </main>
       {!needsLogin && (
-        <nav>
+        <nav aria-label="Hauptmenü">
           {/* In der Scan-Ansicht startet „Prüfen“ die Auswertung, sonst führt es zurück zum Scannen */}
           <button
             className={tab === 'scan' ? 'active' : ''}
+            aria-current={tab === 'scan' ? 'page' : undefined}
             aria-disabled={view.kind === 'scan' && !scan.canStart}
             onClick={() => (view.kind === 'scan' ? scan.start() : setView({ kind: 'scan' }))}
           >
+            <ScanLineIcon size={24} />
             {scan.busy ? 'Prüfe …' : 'Prüfen'}
           </button>
-          <button className={tab === 'email' ? 'active' : ''} onClick={() => setView({ kind: 'email' })}>
-            <MailIcon /> E-Mail
+          <button
+            className={tab === 'email' ? 'active' : ''}
+            aria-current={tab === 'email' ? 'page' : undefined}
+            onClick={() => setView({ kind: 'email' })}
+          >
+            <MailIcon size={24} /> E-Mail
           </button>
-          <button className={tab === 'list' ? 'active' : ''} onClick={() => setView({ kind: 'list' })}>
-            <DatabaseIcon /> Datenbank
+          <button
+            className={tab === 'list' ? 'active' : ''}
+            aria-current={tab === 'list' ? 'page' : undefined}
+            onClick={() => setView({ kind: 'list' })}
+          >
+            <DatabaseIcon size={24} /> Datenbank
           </button>
         </nav>
       )}

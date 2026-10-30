@@ -115,8 +115,8 @@ export function ScanPage({
   }
 
   return (
-    <div className="stack" aria-label="Scan-Seite" data-page="scan-page">
-      <Verdict result={result} />
+    <div className="stack scan-page" aria-label="Scan-Seite" data-page="scan-page">
+      <Verdict result={result} onClose={onCancel} />
       <ProductSummary input={input} identity={check.identity} />
 
       {needsMorePhotos && (
@@ -254,7 +254,7 @@ export function ScanPage({
           <button className="primary" onClick={save} disabled={saving}>
             {saving ? 'Speichere …' : draft.existing ? 'Aktualisieren' : 'In Datenbank speichern'}
           </button>
-          <button onClick={onCancel}>Abbrechen</button>
+          <button className="text-button" onClick={onCancel}>Abbrechen</button>
         </div>
         {error && <p className="error">{error}</p>}
       </div>
