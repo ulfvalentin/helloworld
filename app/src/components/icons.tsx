@@ -10,6 +10,7 @@ import {
   ImageUp,
   Info,
   LoaderCircle,
+  Mail,
   Minus,
   Pencil,
   Search,
@@ -39,6 +40,7 @@ export const ExternalLinkIcon = icon(ExternalLink)
 export const ImageUpIcon = icon(ImageUp)
 export const InfoIcon = icon(Info)
 export const LoaderIcon = icon(LoaderCircle)
+export const MailIcon = icon(Mail)
 export const MinusIcon = icon(Minus)
 export const PencilIcon = icon(Pencil)
 export const SearchIcon = icon(Search)

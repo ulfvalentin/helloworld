@@ -4,9 +4,10 @@ import { AccountMenu } from './components/AccountMenu'
 import { Login } from './components/Login'
 import { LogoHorizontal, LogoStacked } from './components/Logo'
 import { ProductDetail } from './components/ProductDetail'
-import { DatabaseIcon } from './components/icons'
+import { DatabaseIcon, MailIcon } from './components/icons'
 import { ProductList } from './components/ProductList'
 import { Scanner } from './components/Scanner'
+import { EmailImport } from './features/email-import'
 import { ScanPage } from './features/scan-page'
 import { repository } from './lib/repository'
 import { supabase } from './lib/supabase'
@@ -18,6 +19,7 @@ type View =
   | { kind: 'scan' }
   | { kind: 'draft'; draft: Draft; id: number }
   | { kind: 'list' }
+  | { kind: 'email' }
   | { kind: 'product'; product: Product }
 
 export default function App() {
@@ -35,7 +37,7 @@ export default function App() {
   }, [])
 
   const needsLogin = supabase && session === null
-  const tab = view.kind === 'list' || view.kind === 'product' ? 'list' : 'scan'
+  const tab = view.kind === 'list' || view.kind === 'product' ? 'list' : view.kind === 'email' ? 'email' : 'scan'
 
   return (
     <div className="app">
@@ -72,6 +74,8 @@ export default function App() {
             onSaved={(product) => setView({ kind: 'product', product })}
             onCancel={() => setView({ kind: 'scan' })}
           />
+        ) : view.kind === 'email' ? (
+          <EmailImport onSaved={(product) => setView({ kind: 'product', product })} />
         ) : view.kind === 'list' ? (
           <ProductList onOpen={(product) => setView({ kind: 'product', product })} />
         ) : (
@@ -92,6 +96,9 @@ export default function App() {
             onClick={() => (view.kind === 'scan' ? scan.start() : setView({ kind: 'scan' }))}
           >
             {scan.busy ? 'Prüfe …' : 'Prüfen'}
+          </button>
+          <button className={tab === 'email' ? 'active' : ''} onClick={() => setView({ kind: 'email' })}>
+            <MailIcon /> E-Mail
           </button>
           <button className={tab === 'list' ? 'active' : ''} onClick={() => setView({ kind: 'list' })}>
             <DatabaseIcon /> Datenbank
