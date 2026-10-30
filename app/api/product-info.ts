@@ -25,6 +25,8 @@ export interface ProductInfoResult {
   /** Sätze der Seite, die Gluten erwähnen („Alle unsere Nudeln sind glutenfrei.“) */
   glutenStatements: string[]
   allergens: string | null
+  /** false: Zutaten stammen von einem sehr ähnlichen Produkt (gleiche glutenrelevante Zutaten, sonst leicht abweichend) */
+  exact: boolean
   /** Besuchte Adressen, zur Nachvollziehbarkeit */
   checked: string[]
   message: string
@@ -38,7 +40,7 @@ interface Ctx {
 
 const USER_AGENT = 'Mozilla/5.0 (compatible; WheatShield/0.1; Produktinformationen fuer Zoeliakie)'
 const DEADLINE_MS = 9000
-const MAX_FETCHES = 10
+const MAX_FETCHES = 40
 const MAX_BYTES = 1_500_000
 const ACCEPT_SCORE = 2
 
@@ -320,6 +322,40 @@ export function relevance(page: Page, q: ProductInfoQuery): number {
   return score
 }
 
+const GLUTEN_WORDS = /weizen|roggen|gerste|hafer|dinkel|kamut|khorasan|emmer|einkorn|triticale|malz|gluten|wheat|rye|barley|\boats?\b|spelt/g
+
+/** Welche glutenrelevanten Zutaten nennt die Liste? (grob, nur zum Vergleichen von Seiten) */
+export function glutenSignature(ingredients: string): string {
+  return [...new Set(normalize(ingredients).match(GLUTEN_WORDS) ?? [])].sort().join(',')
+}
+
+/**
+ * Beste passende Seite. Gibt es mehrere gleich gute Treffer mit unterschiedlichen Zutaten
+ * (z. B. Haferdrink und Barista), ist das Produkt nicht eindeutig:
+ * - unterscheiden sie sich bei den glutenrelevanten Zutaten → nichts übernehmen (falsche Zutaten
+ *   wären bei Zöliakie schlimmer als keine),
+ * - sonst den besten übernehmen, aber als „nicht exakt“ kennzeichnen.
+ */
+export function pickBest(
+  pages: Page[],
+  q: ProductInfoQuery,
+): { hit: { page: Page; score: number } | null; ambiguous: boolean; exact: boolean } {
+  const ranked = pages
+    .map((page) => ({ page, score: relevance(page, q) }))
+    .filter((r) => r.page.ingredients && r.score >= ACCEPT_SCORE)
+    .sort((a, b) => b.score - a.score)
+  const first = ranked[0]
+  if (!first) return { hit: null, ambiguous: false, exact: true }
+  const others = ranked.filter(
+    (r) =>
+      normalize(r.page.ingredients ?? '') !== normalize(first.page.ingredients ?? '') && first.score - r.score < 0.5,
+  )
+  if (others.length === 0) return { hit: first, ambiguous: false, exact: true }
+  const sig = glutenSignature(first.page.ingredients ?? '')
+  if (others.some((r) => glutenSignature(r.page.ingredients ?? '') !== sig)) return { hit: null, ambiguous: true, exact: true }
+  return { hit: first, ambiguous: false, exact: false }
+}
+
 // ------------------------------------------------------------------ Suche
 
 const registrable = (host: string) => host.replace(/^www\./, '')
@@ -375,15 +411,9 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
     pages.push(page)
     return page
   }
-  const best = (): { page: Page; score: number } | null => {
-    const ranked = pages
-      .map((page) => ({ page, score: relevance(page, q) }))
-      .filter((r) => r.page.ingredients && r.score >= ACCEPT_SCORE)
-      .sort((a, b) => b.score - a.score)
-    return ranked[0] ?? null
-  }
+  const best = () => pickBest(pages, q).hit
   const done = (): ProductInfoResult => {
-    const hit = best()
+    const { hit, ambiguous, exact } = pickBest(pages, q)
     if (hit) {
       return {
         found: true,
@@ -392,8 +422,11 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
         ingredients: hit.page.ingredients,
         glutenStatements: hit.page.glutenStatements,
         allergens: hit.page.allergens,
+        exact,
         checked: ctx.checked,
-        message: 'Zutaten auf der Hersteller-Website gefunden.',
+        message: exact
+          ? 'Zutaten auf der Hersteller-Website gefunden.'
+          : 'Zutaten eines sehr ähnlichen Produkts gefunden – bitte mit der Packung vergleichen.',
       }
     }
     return {
@@ -403,10 +436,13 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
       ingredients: null,
       glutenStatements: [],
       allergens: null,
+      exact: true,
       checked: ctx.checked,
-      message: canMatch
-        ? 'Auf der Hersteller-Website wurde keine passende Zutatenliste gefunden.'
-        : 'Zum Suchen fehlen Produktname oder Barcode.',
+      message: ambiguous
+        ? 'Mehrere ähnliche Produkte gefunden – bitte den Produktnamen eintragen und erneut prüfen.'
+        : canMatch
+          ? 'Auf der Hersteller-Website wurde keine passende Zutatenliste gefunden.'
+          : 'Zum Suchen fehlen Produktname oder Barcode.',
     }
   }
   if (!canMatch) return done()
@@ -431,6 +467,41 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
     .sort((a, b) => b.score - a.score)
   await Promise.all([...new Set(follow.map((l) => l.href))].slice(0, 3).map(visit))
   if (best()) return done()
+
+  // 2b) Produktübersichten durchblättern (Kategorie → Produktseiten) und anhand von Barcode bzw.
+  // Zutatenwörtern vom Foto vergleichen. Funktioniert ohne Websuche und ohne bekannten Produktnamen.
+  if (q.barcode || (q.hints?.length ?? 0) >= 3) {
+    const sameSite = (p: Page) =>
+      p.links.filter((l) => registrable(new URL(l.href).hostname) === registrable(new URL(p.url).hostname))
+    // Bereiche ohne Produktdaten ausklammern, damit das Abrufbudget für Produktseiten reicht
+    const NOT_PRODUCTS = /sustainab|climate|nachhaltig|about|who|career|job|press|legal|datenschutz|privacy|impressum|kontakt|contact|faq|news|blog|recipe|rezept|store|login|cart|warenkorb/i
+    const productLinks = () =>
+      [
+        ...new Set(
+          pages
+            .flatMap(sameSite)
+            .filter((l) => {
+              const path = new URL(l.href).pathname
+              return /produkt|product|sortiment/i.test(path) && !NOT_PRODUCTS.test(path)
+            })
+            .map((l) => l.href.split('#')[0]),
+        ),
+      ].filter((h) => !seen.has(h))
+    const depth = (h: string) => new URL(h).pathname.split('/').filter(Boolean).length
+    // Deutsche Seiten zuerst: Die englische Variante nennt die Zutaten oft anders und wird nicht erkannt.
+    const german = (h: string) => {
+      const u = new URL(h)
+      return /^\/de([-_/]|$)/i.test(u.pathname) || u.hostname.endsWith('.de') ? 0 : 1
+    }
+    // In kleinen Gruppen abrufen, um die Hersteller-Seite nicht zu überlasten
+    const visitAll = async (urls: string[], concurrency = 6) => {
+      for (let i = 0; i < urls.length && !best(); i += concurrency) await Promise.all(urls.slice(i, i + concurrency).map(visit))
+    }
+    // erst Übersichten (flach), dann die darin verlinkten Produktseiten (tief)
+    await visitAll(productLinks().sort((a, b) => german(a) - german(b) || depth(a) - depth(b)).slice(0, 4))
+    if (!best()) await visitAll(productLinks().sort((a, b) => german(a) - german(b) || depth(b) - depth(a)).slice(0, 24))
+    if (best()) return done()
+  }
 
   // 3) Suche auf der Hersteller-Seite, dann Websuche
   const distinctive = [...(q.hints ?? [])].sort((a, b) => b.length - a.length).slice(0, 3)

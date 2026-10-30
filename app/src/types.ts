@@ -52,6 +52,8 @@ export interface IngredientInfo {
   trusted: boolean
   /** Seite des Herstellers, falls von dort */
   url: string | null
+  /** false: Zutaten stammen von einem sehr ähnlichen, nicht exakt demselben Produkt */
+  exact?: boolean
   /** Ergebnis der automatischen Suche auf der Hersteller-Website */
   lookup: 'found' | 'not-found' | 'unavailable' | 'skipped'
   message: string | null
