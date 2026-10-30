@@ -231,7 +231,7 @@ export function classify(input: ClassificationInput): Classification {
   const claim =
     GLUTEN_FREE_CLAIM.test(text) || tags.some((t) => /^labels:.*(gluten-free|no-gluten)/.test(t))
   if (claim || traces.length) {
-    if (claim) reasons.push('Verpackung/Datenbank sagt „glutenfrei“, aber ohne Zertifizierungslogo.')
+    if (claim) reasons.push('„Glutenfrei“ steht auf der Verpackung, bei der Datenbank oder Hersteller-Website – aber ohne Zertifizierungslogo.')
     if (traces.length)
       reasons.push(`Spurenhinweis ohne Gluten: „${traces.join('; ')}“.`)
     reasons.push(

@@ -1,15 +1,11 @@
 import { useState } from 'react'
 import { eanCandidatesFromText } from '../lib/ean'
+import { chooseIngredients } from '../lib/ingredientSource'
+import { applyManufacturer, lookupManufacturer } from '../lib/manufacturer'
 import { lookupOpenFoodFacts } from '../lib/openFoodFacts'
 import { repository } from '../lib/repository'
-import type { Product, ProductInput } from '../types'
-
-export interface Draft {
-  input: ProductInput
-  existing: Product | null
-  ocrText: string | null
-  sources: string[]
-}
+import { extractIngredientBlock, extractWebsites, tidyRawText } from '../lib/textClean'
+import type { Draft, IngredientInfo, Product, ProductInput } from '../types'
 
 const EMPTY: ProductInput = {
   barcode: null,
@@ -33,10 +29,8 @@ export function Scanner({ onDraft }: { onDraft: (d: Draft) => void }) {
     setError(null)
     try {
       // Texterkennung und Barcode-Leser sind groß – erst bei Bedarf laden.
-      const [{ decodeBarcode }, { extractIngredients, recognizeText }] = await Promise.all([
-        import('../lib/barcode'),
-        import('../lib/ocr'),
-      ])
+      const [{ decodeBarcode }, { recognizeText }] = await Promise.all([import('../lib/barcode'), import('../lib/ocr')])
+
       // 1) Barcode aus Fotos lesen (falls nicht eingetippt)
       let code = barcode.trim() || null
       for (const f of files) {
@@ -45,17 +39,20 @@ export function Scanner({ onDraft }: { onDraft: (d: Draft) => void }) {
         code = await decodeBarcode(f)
       }
 
-      // 2) Text auf den Fotos entziffern
-      const texts: string[] = []
+      // 2) Text auf den Fotos entziffern und aufräumen
+      const results = []
       for (const [i, f] of files.entries()) {
         setStep(`Lese Text auf Foto ${i + 1}/${files.length} …`)
-        texts.push(
+        results.push(
           await recognizeText(f, (p) =>
             setStep(`Lese Text auf Foto ${i + 1}/${files.length} … ${Math.round(p * 100)} %`),
           ),
         )
       }
-      const ocrText = texts.join('\n\n').trim() || null
+      const lines = results.flatMap((r) => r.lines)
+      const ocrText = results.map((r) => tidyRawText(r.lines)).filter(Boolean).join('\n\n') || null
+      const block = extractIngredientBlock(lines)
+      const websites = extractWebsites(ocrText ?? '')
 
       // 3) Abgleich mit eigener Datenbank und Open Food Facts
       const sources: string[] = []
@@ -77,20 +74,51 @@ export function Scanner({ onDraft }: { onDraft: (d: Draft) => void }) {
       if (external) sources.push('Open Food Facts')
       if (ocrText) sources.push('Foto (Texterkennung)')
 
-      const ocrIngredients = ocrText ? extractIngredients(ocrText) : null
-      const input: ProductInput = {
+      // 4) Welcher Zutatenliste ist zu trauen? Sonst auf der Hersteller-Website nachsehen.
+      const choice = chooseIngredients({
+        block,
+        existing: existing?.ingredients_text ?? null,
+        external: external?.ingredientsText ?? null,
+      })
+      let input: ProductInput = {
         ...EMPTY,
         ...(existing && stripProduct(existing)),
         barcode: code,
         name: existing?.name ?? external?.name ?? null,
         brand: existing?.brand ?? external?.brand ?? null,
-        // Frisch fotografierte Zutaten haben Vorrang – Rezepturen ändern sich.
-        ingredients_text: ocrIngredients ?? existing?.ingredients_text ?? external?.ingredientsText ?? null,
+        ingredients_text: choice.text,
         label_text: ocrText ?? existing?.label_text ?? null,
         external_tags: external?.tags ?? existing?.external_tags ?? [],
         image_url: existing?.image_url ?? external?.imageUrl ?? null,
       }
-      onDraft({ input, existing, ocrText, sources })
+      const hints = block?.hints ?? []
+      let ingredients: IngredientInfo = {
+        source: choice.source,
+        trusted: choice.trusted,
+        url: null,
+        lookup: 'skipped',
+        message: null,
+      }
+      if (!choice.trusted) {
+        const canSearch = Boolean(input.name || input.barcode || hints.length >= 3)
+        if (canSearch) {
+          setStep('Suche auf der Hersteller-Website …')
+          const found = await lookupManufacturer({
+            name: input.name,
+            brand: input.brand,
+            barcode: input.barcode,
+            urls: [...(external?.link ? [external.link] : []), ...websites],
+            hints,
+          })
+          if (!found) ingredients = { ...ingredients, lookup: 'unavailable' }
+          else if (found.found && found.ingredients) {
+            input = applyManufacturer(input, found)
+            ingredients = { source: 'hersteller', trusted: true, url: found.sourceUrl, lookup: 'found', message: found.message }
+            sources.push('Hersteller-Website')
+          } else ingredients = { ...ingredients, lookup: 'not-found', message: found.message }
+        }
+      }
+      onDraft({ input, existing, ocrText, sources, ingredients, websites, hints })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {

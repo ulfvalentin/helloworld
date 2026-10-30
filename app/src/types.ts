@@ -43,3 +43,30 @@ export type ProductInput = Omit<
 >
 
 export type ConfirmationInput = Omit<ManufacturerConfirmation, 'id' | 'product_id' | 'created_at'>
+
+export type IngredientSource = 'foto' | 'datenbank' | 'openfoodfacts' | 'hersteller'
+
+/** Woher stammt die Zutatenliste, und wie verlässlich ist sie? */
+export interface IngredientInfo {
+  source: IngredientSource | null
+  trusted: boolean
+  /** Seite des Herstellers, falls von dort */
+  url: string | null
+  /** Ergebnis der automatischen Suche auf der Hersteller-Website */
+  lookup: 'found' | 'not-found' | 'unavailable' | 'skipped'
+  message: string | null
+}
+
+/** Ergebnis der Analyse, bevor es gespeichert wird. */
+export interface Draft {
+  input: ProductInput
+  existing: Product | null
+  /** Erkannter Text der Fotos (aufgeräumt), für die Scan-Historie */
+  ocrText: string | null
+  sources: string[]
+  ingredients: IngredientInfo
+  /** Webadressen von der Verpackung */
+  websites: string[]
+  /** Sicher gelesene Zutatenwörter, um das Produkt im Netz wiederzuerkennen */
+  hints: string[]
+}

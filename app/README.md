@@ -51,6 +51,23 @@ Nützliche Views:
 - `npm test` – Tests der Einstufungsregeln
 - `npm run build` – Typecheck und Produktions-Build
 
+## Zutaten lesen und Hersteller-Suche
+
+Die Texterkennung liefert pro Wort eine Sicherheit. Die App zeigt nur sicher gelesene Wörter und
+schneidet die Zutatenliste (bis zur Nährwerttabelle) heraus (`src/lib/textClean.ts`). Der komplette
+erkannte Text wird trotzdem nach Gluten durchsucht und steht eingeklappt unter „Produkt“.
+
+Ist die Zutatenliste auf dem Foto nicht verlässlich lesbar, fragt die App der Reihe nach:
+eigene Datenbank → Open Food Facts → **Hersteller-Website** (`api/product-info.ts`, eine Vercel-Funktion,
+weil der Browser fremde Websites nicht lesen darf). Die Funktion probiert Webadressen von der Packung,
+die Produktseite aus Open Food Facts und die vermutete Hersteller-Domain, folgt passenden Links und
+sucht notfalls im Web. Eine Seite zählt nur, wenn sie zum Produkt passt (Barcode, Produktname oder
+übereinstimmende Zutatenwörter vom Foto). Eine „glutenfrei“-Aussage dort ergibt nur
+„ungeprüft glutenfrei“ – „geprüft“ bleibt der Anfrage beim Hersteller oder dem Logo vorbehalten.
+
+Die Funktion ruft nur öffentliche http(s)-Adressen ab (keine internen Netze, begrenzte Größe und Zeit).
+Lokal (`npm run dev`) wird sie automatisch mit bereitgestellt.
+
 ## Marke
 
 Logo, Farben und Schrift: `public/brand/BRAND.md`. Die Farben stehen als `--ws-*`-Variablen

@@ -91,3 +91,15 @@ button.link { background: none; border: none; color: var(--highlight-text); font
 nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--border); }
 nav button { flex: 1; max-width: 300px; }
 nav button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+/* Zutatenliste */
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: color-mix(in srgb, var(--text) 9%, transparent); border-radius: 999px; padding: 5px 12px; font-size: 0.92rem; }
+.chip.gluten { background: color-mix(in srgb, var(--red) 20%, transparent); color: var(--red); font-weight: 600; }
+.traces { margin: 0; font-size: 0.9rem; color: var(--muted); }
+.traces.gluten { color: var(--orange); font-weight: 600; }
+.notice-box { margin: 0; border-left: 3px solid var(--border); padding-left: 10px; font-size: 0.9rem; color: var(--muted); }
+.notice-box.warn { border-color: var(--orange); color: var(--text); }
+.notice-box a { color: var(--highlight-text); font-weight: 600; }
+details summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
+details textarea { margin-top: 8px; }
