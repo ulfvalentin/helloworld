@@ -9,13 +9,8 @@ export interface ClassificationInput {
   ingredientsText?: string | null
   /** Restlicher Verpackungstext (Vorderseite, Hinweise, Logos als Text) */
   labelText?: string | null
-  /** Zertifizierungslogo wurde (manuell oder per Tag) erkannt */
+  /** Zertifizierungslogo wurde (manuell) bestätigt */
   certifiedLabel?: boolean
-  /**
-   * Tags aus externen Datenbanken mit Präfix, z. B. aus Open Food Facts:
-   * "labels:en:gluten-free", "allergens:en:gluten", "traces:en:gluten"
-   */
-  externalTags?: string[]
   confirmations?: { confirmed_at: string; confirms_gluten_free: boolean }[]
   /**
    * false: Die Zutatenliste wurde unsicher gelesen. „Keine glutenhaltigen Zutaten“ ist dann nicht
@@ -194,7 +189,6 @@ export function classify(input: ClassificationInput): Classification {
   const { sources: otherSources, rest: labelRest } = splitSourceLines(input.labelText)
   const label = normalizeText(labelRest)
   const text = [ingredients, label].filter(Boolean).join(' . ')
-  const tags = (input.externalTags ?? []).map((t) => t.toLowerCase())
   const reasons: string[] = []
   const explanation: ExplanationItem[] = []
   /** Begründung hinzufügen; gefundene Wörter erscheinen im Text (gespeichert) und strukturiert (zum Hervorheben). */
@@ -221,11 +215,8 @@ export function classify(input: ClassificationInput): Classification {
   const manufacturerDenied = latestAny && !latestAny.confirms_gluten_free
 
   // --- Zertifizierung ---
-  const certifiedByTag = tags.some((t) =>
-    /^labels:.*(crossed-grain|aoecs|certified-gluten-free)/.test(t),
-  )
   const certifiedByText = CERTIFICATION_TEXT.test(text)
-  const certified = Boolean(input.certifiedLabel) || certifiedByTag
+  const certified = Boolean(input.certifiedLabel)
 
   // Die Einstufung stützt sich allein auf die Zutatenliste. Verpackungstext, Werbeaussagen und Datenbank-Tags
   // (die z. B. Zubereitungshinweise oder Fremdtexte enthalten können) fließen nicht ein.
@@ -246,11 +237,7 @@ export function classify(input: ClassificationInput): Classification {
   // 1) Sicher glutenfrei lt. Hersteller (Logo oder Herstellerbestätigung)
   if (!manufacturerDenied && (certified || confirmationValid)) {
     if (certified) {
-      add(
-        input.certifiedLabel
-          ? 'Zertifizierungslogo (durchgestrichene Ähre) auf der Verpackung bestätigt.'
-          : 'Zertifiziert glutenfrei laut externer Datenbank.',
-      )
+      add('Zertifizierungslogo (durchgestrichene Ähre) auf der Verpackung bestätigt.')
     }
     if (confirmationValid) {
       add(
@@ -303,8 +290,7 @@ export function classify(input: ClassificationInput): Classification {
   }
 
   // 4) Keine glutenhaltigen Zutaten (auch wenn „glutenfrei“ draufsteht, aber ohne Logo/Bestätigung)
-  const claim =
-    GLUTEN_FREE_CLAIM.test(text) || tags.some((t) => /^labels:.*(gluten-free|no-gluten)/.test(t))
+  const claim = GLUTEN_FREE_CLAIM.test(text)
   if (ingredients) {
     if (input.ingredientsReliable === false) {
       add('Die Zutatenliste wurde unsicher gelesen – bitte prüfen oder korrigieren, bevor du dich darauf verlässt.')
@@ -312,7 +298,7 @@ export function classify(input: ClassificationInput): Classification {
     }
     add('Keine glutenhaltigen Zutaten gefunden.')
     if (claim)
-      add('„Glutenfrei“ steht auf der Verpackung, bei der Datenbank oder Hersteller-Website – aber ohne Zertifizierungslogo.')
+      add('„Glutenfrei“ steht auf der Verpackung, oder auf der Hersteller-Website – aber ohne Zertifizierungslogo.')
     if (traces.length) add(`Spurenhinweis ohne Gluten: „${traces.join('; ')}“.`)
     add('Kreuzkontamination (Spuren) ist nicht ausgeschlossen.')
     add(

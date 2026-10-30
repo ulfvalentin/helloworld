@@ -4,6 +4,5 @@ import type { SourceId } from '../types'
 export const SOURCE_NAME: Record<SourceId, string> = {
   foto: 'Foto',
   hersteller: 'Hersteller-Website',
-  openfoodfacts: 'Open Food Facts',
   datenbank: 'eure Datenbank',
 }

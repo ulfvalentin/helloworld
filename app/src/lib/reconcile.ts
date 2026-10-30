@@ -5,7 +5,7 @@ import { SOURCE_NAME } from './sources'
 
 /**
  * Welche Liste wird angezeigt? Ein gut lesbares Foto zeigt die aktuelle Packung und gewinnt (Rezepturen ändern sich),
- * dann die Hersteller-Website (nachweislich dasselbe Produkt), Open Food Facts, die eigene Datenbank. Ein
+ * dann die Hersteller-Website (nachweislich dasselbe Produkt), die eigene Datenbank. Ein
  * unsicher gelesenes Foto ist nur die letzte Notlösung.
  */
 function priority(l: SourceList): number {
@@ -14,8 +14,6 @@ function priority(l: SourceList): number {
       return l.quality === 'gut' ? 4 : 1
     case 'hersteller':
       return l.exact === false ? 2.2 : 3.5
-    case 'openfoodfacts':
-      return 3
     case 'datenbank':
       return 2.5
   }

@@ -1,4 +1,4 @@
-// Eine Prüfung: Fotos lesen, Hersteller-Website, Open Food Facts und eigene Datenbank befragen, die Ergebnisse
+// Eine Prüfung: Fotos lesen, Hersteller-Website und eigene Datenbank befragen, die Ergebnisse
 // miteinander abgleichen und Zutaten samt Hinweisen zusammenstellen. Beschreibung: features/scan-page/FEATURE.md
 import type {
   CheckNote,
@@ -16,17 +16,14 @@ import { eanCandidatesFromText } from './ean'
 import { buildLabelText, splitSourceLines } from './labelText'
 import type { ManufacturerQuery, ManufacturerResult } from './manufacturer'
 import type { OcrResult } from './ocr'
-import type { ExternalProduct } from './openFoodFacts'
 import { reconcile } from './reconcile'
 import { SOURCE_NAME } from './sources'
-import { tagNames } from './tagLabels'
 import { extractCompany, extractIngredientBlock, extractWebsites, parseIngredients, tidyRawText } from './textClean'
 
 export interface CheckDeps {
   decodeBarcode(file: Blob): Promise<string | null>
   recognizeText(file: Blob, onProgress?: (p: number) => void): Promise<OcrResult>
   getByBarcode(code: string): Promise<Product | null>
-  lookupOpenFoodFacts(code: string): Promise<ExternalProduct | null>
   lookupManufacturer(q: ManufacturerQuery): Promise<ManufacturerResult | null>
 }
 
@@ -41,11 +38,10 @@ export interface ProgressStep {
 export const STEP_LABELS: Record<StepId, string> = {
   foto: 'Fotos prüfen',
   hersteller: 'Herstellerseite durchsuchen',
-  openfoodfacts: 'Open Food Facts abrufen',
   datenbank: 'Mit eurer Datenbank abgleichen',
   abgleich: 'Quellen abgleichen',
 }
-const ORDER: StepId[] = ['foto', 'hersteller', 'openfoodfacts', 'datenbank', 'abgleich']
+const ORDER: StepId[] = ['foto', 'hersteller', 'datenbank', 'abgleich']
 
 export const EMPTY_INPUT: ProductInput = {
   barcode: null,
@@ -55,7 +51,6 @@ export const EMPTY_INPUT: ProductInput = {
   label_text: null,
   certified_label: false,
   certification_note: null,
-  external_tags: [],
   image_url: null,
 }
 
@@ -66,7 +61,6 @@ export function stripProduct(p: Product): ProductInput {
 
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const host = (url: string) => new URL(url).hostname.replace(/^www\./, '')
-const words = (s: string) => normalizeText(s).split(/[^a-zäöüß0-9]+/).filter((w) => w.length >= 3)
 
 function listOf(source: SourceId, text: string | null | undefined, extra: Partial<SourceList> = {}): SourceList | null {
   if (!text?.trim()) return null
@@ -88,8 +82,6 @@ export interface CheckContext {
   websites: string[]
   hints: string[]
   existing: Product | null
-  external: ExternalProduct | null
-  offError: boolean
   /** Wurde auf der Hersteller-Website gesucht? (Sonst fehlten Angaben zum Suchen) */
   searched: boolean
   manufacturer: ManufacturerResult | null
@@ -105,21 +97,6 @@ function reportPhoto(c: CheckContext): StepReport {
   if (!c.photoList) return { source: 'foto', status: 'none', summary: 'Auf den Fotos wurde keine Zutatenliste erkannt.' }
   const good = c.photoList.quality === 'gut'
   return { source: 'foto', status: 'found', summary: `${c.photoList.items.length} Zutaten gelesen${good ? ' (gut lesbar)' : ' – schwer lesbar'}.` }
-}
-
-function reportOff(c: CheckContext): StepReport {
-  if (c.external) {
-    const list = listOf('openfoodfacts', c.external.ingredientsText)
-    return {
-      source: 'openfoodfacts',
-      status: 'found',
-      summary: `Produkt gefunden${c.external.name ? `: ${c.external.name}` : ''} · ${list ? `${list.items.length} Zutaten` : 'ohne Zutatenliste'}.`,
-    }
-  }
-  if (c.offError) return { source: 'openfoodfacts', status: 'error', summary: 'Open Food Facts ist nicht erreichbar.' }
-  return c.code
-    ? { source: 'openfoodfacts', status: 'none', summary: 'Der Barcode ist in Open Food Facts nicht bekannt.' }
-    : { source: 'openfoodfacts', status: 'skipped', summary: 'Ohne Barcode kein Abruf möglich.' }
 }
 
 function reportDb(c: CheckContext): StepReport {
@@ -148,7 +125,7 @@ function reportMfr(c: CheckContext): StepReport {
  * `override`: vom Nutzer eingegebene Angaben, die Vorrang haben.
  */
 export function assembleDraft(c: CheckContext, override: { name?: string | null; brand?: string | null } = {}): Draft {
-  const { existing, external, manufacturer } = c
+  const { existing, manufacturer } = c
   const from = { ...c.from }
   const notes: CheckNote[] = []
 
@@ -156,20 +133,16 @@ export function assembleDraft(c: CheckContext, override: { name?: string | null;
   const identity: Identity = { name: null, brand: null, company: null, barcode: c.code, from }
   if (override.name) [identity.name, from.name] = [override.name, 'eingegeben']
   else if (existing?.name) [identity.name, from.name] = [existing.name, SOURCE_NAME.datenbank]
-  else if (external?.name) [identity.name, from.name] = [external.name, SOURCE_NAME.openfoodfacts]
   if (override.brand) [identity.brand, from.brand] = [override.brand, 'eingegeben']
   else if (existing?.brand) [identity.brand, from.brand] = [existing.brand, SOURCE_NAME.datenbank]
-  else if (external?.brand) [identity.brand, from.brand] = [external.brand, SOURCE_NAME.openfoodfacts]
-  if (external?.company) [identity.company, from.company] = [external.company, SOURCE_NAME.openfoodfacts]
-  else if (c.photoCompany) [identity.company, from.company] = [c.photoCompany, 'Verpackung']
+  if (c.photoCompany) [identity.company, from.company] = [c.photoCompany, 'Verpackung']
   const mfrList = mfrListOf(manufacturer)
   if (!identity.name && mfrList?.exact && manufacturer?.title && manufacturer.title.length <= 80)
     [identity.name, from.name] = [manufacturer.title, SOURCE_NAME.hersteller]
 
   // Abgleich der Zutatenlisten
-  const offList = listOf('openfoodfacts', external?.ingredientsText)
   const dbList = listOf('datenbank', existing?.ingredients_text)
-  const lists = [c.photoList, mfrList, offList, dbList].filter((l): l is SourceList => l !== null)
+  const lists = [c.photoList, mfrList, dbList].filter((l): l is SourceList => l !== null)
   const result = reconcile(lists)
 
   // Hinweise: Spuren, Allergene, Aussagen, Unterschiede
@@ -178,21 +151,8 @@ export function assembleDraft(c: CheckContext, override: { name?: string | null;
     if (traces.length) notes.push({ level: 'info', text: `Spurenhinweis auf der Verpackung: ${sentence(traces.join('; '))}.` })
   }
   notes.push(...result.notes)
-  if (external) {
-    const traces = tagNames(external.tags, 'traces')
-    const allergens = tagNames(external.tags, 'allergens')
-    if (allergens.length) notes.push({ level: 'info', text: `Allergene laut Open Food Facts: ${allergens.join(', ')}.` })
-    if (traces.length) notes.push({ level: 'info', text: `Spuren laut Open Food Facts: ${traces.join(', ')}.` })
-    if (external.tags.some((t) => /^labels:.*gluten-free/.test(t)))
-      notes.push({ level: 'info', text: 'Open Food Facts führt das Label „glutenfrei“ auf.' })
-  }
   for (const s of manufacturer?.glutenStatements ?? []) notes.push({ level: 'info', text: `Hersteller-Website: „${s}“` })
   if (manufacturer?.allergens) notes.push({ level: 'info', text: `Allergene laut Hersteller-Website: ${manufacturer.allergens}` })
-  if (existing?.name && external?.name) {
-    const a = new Set(words(existing.name))
-    if (a.size && !words(external.name).some((w) => a.has(w)))
-      notes.push({ level: 'warn', text: `Der Name weicht ab: Datenbank „${existing.name}“, Open Food Facts „${external.name}“.` })
-  }
   notes.sort((x, y) => (x.level === y.level ? 0 : x.level === 'warn' ? -1 : 1))
 
   const chosen = result.chosen
@@ -212,10 +172,9 @@ export function assembleDraft(c: CheckContext, override: { name?: string | null;
       chosen: chosen?.source ?? null,
       statements: manufacturer?.glutenStatements ?? [],
     }),
-    external_tags: external?.tags ?? existing?.external_tags ?? [],
-    image_url: existing?.image_url ?? external?.imageUrl ?? null,
+    image_url: existing?.image_url ?? null,
   }
-  const reports = [reportPhoto(c), reportMfr(c), reportOff(c), reportDb(c)]
+  const reports = [reportPhoto(c), reportMfr(c), reportDb(c)]
   const ingredients: IngredientInfo = {
     source: chosen?.source ?? null,
     trusted: chosen ? !(chosen.source === 'foto' && chosen.quality === 'unsicher') : false,
@@ -289,48 +248,37 @@ export async function runCheck(
     websites: extractWebsites(ocrText ?? ''),
     hints: block?.hints ?? [],
     existing: null,
-    external: null,
-    offError: false,
     searched: false,
     manufacturer: null,
   }
   set('foto', 'fertig', reportPhoto(ctx).summary)
 
-  // ---- 3. Open Food Facts und 4. eigene Datenbank (liefern auch Name und Marke für die Suche auf der Herstellerseite)
-  set('openfoodfacts', 'läuft', 'Abrufen …')
+  // ---- 3. Eigene Datenbank (liefert auch Name und Marke für die Suche auf der Herstellerseite)
   set('datenbank', 'läuft', 'Abgleichen …')
   for (const c of code ? [code] : eanCandidatesFromText(ocrText ?? '').slice(0, 4)) {
-    const [ex, ext] = await Promise.all([
-      deps.getByBarcode(c).catch(() => null),
-      deps.lookupOpenFoodFacts(c).catch(() => {
-        ctx.offError = true
-        return null
-      }),
-    ])
-    // Aus den gedruckten Ziffern geratene Nummern zählen nur, wenn eine Datenbank das Produkt kennt
-    if (code || ex || ext) {
+    const ex = await deps.getByBarcode(c).catch(() => null)
+    // Aus den gedruckten Ziffern geratene Nummern zählen nur, wenn die Datenbank das Produkt kennt
+    if (code || ex) {
       if (!code) {
         ctx.code = c
         from.barcode = 'Ziffern unter dem Strichcode'
       }
       ctx.existing = ex
-      ctx.external = ext
       break
     }
   }
-  set('openfoodfacts', 'fertig', reportOff(ctx).summary)
   set('datenbank', 'fertig', reportDb(ctx).summary)
 
   // ---- 2. Herstellerseite
   set('hersteller', 'läuft', 'Website durchsuchen …')
-  const name = input.name || (ctx.existing?.name ?? ctx.external?.name ?? null)
+  const name = input.name || (ctx.existing?.name ?? null)
   ctx.searched = Boolean(name || ctx.code || ctx.hints.length >= 3)
   if (ctx.searched)
     ctx.manufacturer = await deps.lookupManufacturer({
       name,
-      brand: input.brand || (ctx.existing?.brand ?? ctx.external?.brand ?? ctx.external?.company ?? ctx.photoCompany),
+      brand: input.brand || (ctx.existing?.brand ?? ctx.photoCompany),
       barcode: ctx.code,
-      urls: [...(ctx.external?.link ? [ctx.external.link] : []), ...ctx.websites],
+      urls: ctx.websites,
       hints: ctx.hints,
     })
   set('hersteller', 'fertig', reportMfr(ctx).summary)
@@ -354,8 +302,6 @@ export function draftFromProduct(product: Product): Draft {
     websites: [],
     hints: [],
     existing: product,
-    external: null,
-    offError: false,
     searched: false,
     manufacturer: null,
     edit: true,

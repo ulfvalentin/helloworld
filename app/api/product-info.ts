@@ -11,7 +11,7 @@ export interface ProductInfoQuery {
   name?: string
   brand?: string
   barcode?: string
-  /** Webadressen von der Verpackung oder aus Open Food Facts */
+  /** Webadressen von der Verpackung */
   urls: string[]
   /** Sicher gelesene Zutatenwörter vom Foto – Seiten mit passender Zutatenliste sind das Produkt */
   hints?: string[]
@@ -462,7 +462,7 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
   }
   if (!canMatch) return done()
 
-  // 1) Bekannte Adressen: von der Verpackung, aus Open Food Facts, geratene Hersteller-Domains
+  // 1) Bekannte Adressen: von der Verpackung, geratene Hersteller-Domains
   const sites = candidateSites(q)
   await Promise.all(sites.map(visit))
   if (best()) return done()

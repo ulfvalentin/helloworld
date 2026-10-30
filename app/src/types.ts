@@ -30,8 +30,6 @@ export interface Product {
   /** Zertifizierungslogo (z. B. durchgestrichene Ähre / AOECS) auf der Verpackung */
   certified_label: boolean
   certification_note: string | null
-  /** Tags aus Open Food Facts (labels, allergens, traces) */
-  external_tags: string[]
   image_url: string | null
   status: GlutenStatus
   status_reasons: string[]
@@ -48,7 +46,7 @@ export type ProductInput = Omit<
 export type ConfirmationInput = Omit<ManufacturerConfirmation, 'id' | 'product_id' | 'created_at'>
 
 /** Die vier Quellen jeder Prüfung. */
-export type IngredientSource = 'foto' | 'datenbank' | 'openfoodfacts' | 'hersteller'
+export type IngredientSource = 'foto' | 'datenbank' | 'hersteller'
 export type SourceId = IngredientSource
 
 /** Woher stammt die Zutatenliste, und wie verlässlich ist sie? */
@@ -93,7 +91,7 @@ export interface CheckNote {
 export interface Identity {
   name: string | null
   brand: string | null
-  /** Firma laut Verpackung/Open Food Facts („Theodor Kattus GmbH“) */
+  /** Firma laut Verpackung („Theodor Kattus GmbH“) */
   company: string | null
   barcode: string | null
   from: { name?: string; brand?: string; company?: string; barcode?: string }

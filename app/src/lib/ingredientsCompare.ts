@@ -1,4 +1,4 @@
-// Vergleich von Zutatenlisten verschiedener Quellen (Foto, Hersteller-Website, Open Food Facts, Datenbank).
+// Vergleich von Zutatenlisten verschiedener Quellen (Foto, Hersteller-Website, Datenbank).
 
 const STOP = new Set(['und', 'aus', 'mit', 'von', 'in', 'ca', 'bio', 'and', 'of'])
 

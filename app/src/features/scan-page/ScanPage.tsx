@@ -52,7 +52,6 @@ export function ScanPage({
         ingredientsText: input.ingredients_text,
         labelText: input.label_text,
         certifiedLabel: input.certified_label,
-        externalTags: input.external_tags,
         confirmations: draft.existing?.confirmations,
         ingredientsReliable: reliable,
       }),
@@ -247,9 +246,6 @@ export function ScanPage({
             Wird zusätzlich auf Gluten durchsucht, auch wenn er in der Zutatenliste oben nicht auftaucht.
           </p>
         </details>
-        {input.external_tags.length > 0 && (
-          <p className="muted small">Open Food Facts: {input.external_tags.join(', ')}</p>
-        )}
         <div className="row">
           <button className="primary" onClick={save} disabled={saving}>
             {saving ? 'Speichere …' : draft.existing ? 'Aktualisieren' : 'In Datenbank speichern'}

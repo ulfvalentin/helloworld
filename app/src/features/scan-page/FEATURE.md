@@ -12,24 +12,23 @@ das Foto gut lesbar ist – der Abgleich lebt davon, mehrere Quellen zu vergleic
 | --- | --- | --- |
 | 1 | **Fotos prüfen** | Barcode lesen, Text erkennen, Zutatenblock, Firma, Webadressen und markante Zutatenwörter herausholen |
 | 2 | **Herstellerseite durchsuchen** | Hersteller-Website aufrufen und nach den Produktinformationen suchen (`/api/product-info`) |
-| 3 | **Open Food Facts abrufen** | Produkt per Barcode: Name, Marke, Zutaten, Allergene, Spuren, Labels |
-| 4 | **Mit eurer Datenbank abgleichen** | Bereits gespeichertes Produkt per Barcode finden |
-| 5 | **Quellen abgleichen** | Zutatenlisten vergleichen, Liste wählen, Hinweise und Produktangaben zusammenstellen |
+| 3 | **Mit eurer Datenbank abgleichen** | Bereits gespeichertes Produkt per Barcode finden |
+| 4 | **Quellen abgleichen** | Zutatenlisten vergleichen, Liste wählen, Hinweise und Produktangaben zusammenstellen |
 
-Die Schritte 3 und 4 laufen vor Schritt 2, weil Name und Marke daraus die Suche auf der Herstellerseite genauer machen; angezeigt
-werden sie in der Reihenfolge 1–5. Der Fortschritt steht live auf dem Scan-Bildschirm (`CheckProgress`), das Ergebnis jeder Quelle
+Schritt 3 läuft vor Schritt 2, weil Name und Marke daraus die Suche auf der Herstellerseite genauer machen; angezeigt
+werden sie in der Reihenfolge 1–4. Open Food Facts wird nirgends mehr abgefragt. Der Fortschritt steht live auf dem Scan-Bildschirm (`CheckProgress`), das Ergebnis jeder Quelle
 danach unter „So wurde geprüft“ (`CheckSteps`). Ein Fehler einer Quelle stoppt die Prüfung nicht und wird dort benannt.
 
 `runCheck` sammelt die Rohdaten (`CheckContext`) und ruft `assembleDraft` auf. „Hersteller-Website prüfen“ auf der Seite ruft
 `assembleDraft` mit der neuen Antwort erneut auf, ohne die Fotos nochmal zu lesen.
 
 ## Abgleich (`src/lib/reconcile.ts`)
-- **Angezeigte Liste:** gut lesbares Foto → Hersteller-Website (nachweislich dasselbe Produkt) → Open Food Facts →
+- **Angezeigte Liste:** gut lesbares Foto → Hersteller-Website (nachweislich dasselbe Produkt) →
   eigene Datenbank → Hersteller-Website (nicht eindeutig) → unsicheres Foto.
 - **Vergleich** (`ingredientsCompare.ts`): Zutaten ohne Klammern, Prozente, Endungen; kleine Tippfehler der Texterkennung
-  zählen als gleich. Abweichungen erscheinen als Hinweis („Open Food Facts nennt zusätzlich …“).
+  zählen als gleich. Abweichungen erscheinen als Hinweis („Hersteller-Website nennt zusätzlich …“).
 - **Gluten:** Nennt eine Quelle Gluten-Getreide, das in der angezeigten Liste fehlt, gibt es eine Warnung, und die Einstufung
-  beachtet sie. Dafür steht die Liste jeder weiteren externen Quelle als Zeile `Quelle <Name>: <Zutaten>` im gespeicherten
+  beachtet sie. Dafür steht die Liste jeder weiteren Quelle als Zeile `Quelle <Name>: <Zutaten>` im gespeicherten
   Rohtext (`label_text`, siehe `labelText.ts`); `classify()` liest diese Zeilen (`where: 'quelle'`).
 - Die eigene Datenbank wird verglichen (Rezeptur geändert?), zählt aber nicht für die Gluten-Suche (alter Stand).
 
@@ -57,14 +56,14 @@ danach unter „So wurde geprüft“ (`CheckSteps`). Ein Fehler einer Quelle sto
 - **Häkchen:** Jeder beendete Prüfschritt zeigt ein ✓ (das Ergebnis steht im Text); nur ein Fehler zeigt ein ✗.
 - Eine unsichere Liste ergibt höchstens **Unbekannt**; gefundene Gluten-Wörter und Spurenhinweise zählen trotzdem. Hat der Nutzer die
   Zutaten korrigiert, gilt sie als verlässlich. Eine unsichere, nicht korrigierte Liste wird nicht als `ingredients_text` gespeichert.
-- **Produktangaben** stammen aus der eigenen Datenbank, Open Food Facts, der Hersteller-Website (Name nur bei nachweislich gleichem
+- **Produktangaben** stammen aus der eigenen Datenbank, der Hersteller-Website (Name nur bei nachweislich gleichem
   Produkt) und der Verpackung (Firma). Sind alle leer, steht „nicht erkannt“ – nichts wird erfunden.
 
 ## Wichtige Dateien
 `ScanPage.tsx`, `IngredientsSection.tsx`, `ProductSummary.tsx`, `Notes.tsx`, `CheckSteps.tsx` (hier);
 `components/Verdict.tsx`, `components/CheckProgress.tsx`;
 `lib/runCheck.ts` (Ablauf, `assembleDraft`), `lib/reconcile.ts`, `lib/ingredientsCompare.ts`, `lib/labelText.ts`, `lib/classify.ts`,
-`lib/textClean.ts`, `lib/openFoodFacts.ts`, `lib/manufacturer.ts`, `api/product-info.ts`.
+`lib/textClean.ts`, `lib/manufacturer.ts`, `api/product-info.ts`.
 
 ## Tests
 `runCheck.test.ts` (Ablauf mit nachgestellten Quellen), `ingredientsCompare.test.ts`, `classify.test.ts`, `textClean.test.ts`.
