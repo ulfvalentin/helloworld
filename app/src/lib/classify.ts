@@ -24,9 +24,27 @@ export interface ClassificationInput {
   now?: Date
 }
 
+/** Ein gefundenes Gluten-Wort, so wie es im Text steht („Weizenmehl“), samt Getreide („Weizen“). */
+export interface GlutenFinding {
+  word: string
+  cereal: string
+  /** Wo es steht: Zutatenliste, restlicher Verpackungstext oder externe Datenbank */
+  where: 'zutaten' | 'verpackung' | 'datenbank'
+}
+
+/** Ein Schritt der Begründung, ggf. mit den gefundenen Wörtern. */
+export interface ExplanationItem {
+  text: string
+  words?: { word: string; cereal: string }[]
+}
+
 export interface Classification {
   status: GlutenStatus
+  /** Begründung als Text (wird mit der Einstufung gespeichert) */
   reasons: string[]
+  /** Dieselbe Begründung strukturiert, mit den gefundenen Wörtern zum Hervorheben */
+  explanation: ExplanationItem[]
+  glutenFindings: GlutenFinding[]
   glutenSources: string[]
   traces: string[]
   /** Bis wann die jüngste positive Herstellerbestätigung gilt (ISO-Datum) */
@@ -97,9 +115,26 @@ function ingredientAt(text: string, pos: number): string {
   return text.slice(start, ends.length ? Math.min(...ends) : text.length)
 }
 
-/** Findet glutenhaltige Zutaten in einem Text. */
-export function findGlutenSources(text: string): string[] {
-  const found = new Set<string>()
+export interface GlutenMatch {
+  /** Wort wie im Text, erster Buchstabe groß: „Vollkornweizenmehl“ */
+  word: string
+  /** Getreide: „Weizen“ */
+  cereal: string
+}
+
+/** Das ganze Wort um einen Treffer herum („vollkornweizenmehl“ statt nur „weizen“). */
+function wordAround(text: string, start: number, end: number): string {
+  let s = start
+  let e = end
+  while (s > 0 && /\p{L}/u.test(text[s - 1])) s--
+  while (e < text.length && /\p{L}/u.test(text[e])) e++
+  const word = text.slice(s, e)
+  return word.charAt(0).toUpperCase() + word.slice(1)
+}
+
+/** Findet glutenhaltige Wörter in einem (normalisierten) Text, mit dem Wort, wie es dort steht. */
+export function findGlutenMatches(text: string): GlutenMatch[] {
+  const byWord = new Map<string, GlutenMatch>()
   for (const { label, re } of GLUTEN_PATTERNS) {
     for (const m of text.matchAll(re)) {
       const start = m.index ?? 0
@@ -110,10 +145,18 @@ export function findGlutenSources(text: string): string[] {
       if (/gluten[\s-]*frei[\wäöüß]*\s*$/.test(before)) continue
       if (/^[\wäöüß]*\s*\(?\s*gluten[\s-]*frei/.test(text.slice(start + m[0].length, start + m[0].length + 20)))
         continue
-      found.add(label)
+      const word = wordAround(text, start, start + m[0].length)
+      const known = byWord.get(word.toLowerCase())
+      if (!known) byWord.set(word.toLowerCase(), { word, cereal: label })
+      else if (!known.cereal.split(', ').includes(label)) known.cereal += `, ${label}`
     }
   }
-  return [...found]
+  return [...byWord.values()]
+}
+
+/** Findet glutenhaltige Zutaten in einem Text (nur die Getreide-Namen). */
+export function findGlutenSources(text: string): string[] {
+  return [...new Set(findGlutenMatches(text).flatMap((m) => m.cereal.split(', ')))]
 }
 
 /** Liefert die Texte aller Spurenhinweise ("Kann Spuren von ... enthalten"). */
@@ -147,6 +190,12 @@ export function classify(input: ClassificationInput): Classification {
   const text = [ingredients, label].filter(Boolean).join(' . ')
   const tags = (input.externalTags ?? []).map((t) => t.toLowerCase())
   const reasons: string[] = []
+  const explanation: ExplanationItem[] = []
+  /** Begründung hinzufügen; gefundene Wörter erscheinen im Text (gespeichert) und strukturiert (zum Hervorheben). */
+  const add = (text: string, words?: GlutenMatch[]) => {
+    explanation.push({ text, words })
+    reasons.push(words?.length ? `${text} ${words.map((w) => `„${w.word}“`).join(', ')}` : text)
+  }
 
   // --- Herstellerbestätigung (max. 6 Monate alt) ---
   const positive = (input.confirmations ?? [])
@@ -176,60 +225,72 @@ export function classify(input: ClassificationInput): Classification {
   // Gesucht wird im gesamten Text: Die Texterkennung vermischt mehrspaltige Etiketten,
   // sodass Zutaten außerhalb des erkannten Zutatenblocks landen können. Ein Fehlalarm
   // ist bei Zöliakie harmloser als eine übersehene Glutenquelle.
-  const { statements: traces, rest } = findTraceStatements(text)
-  const glutenSources = findGlutenSources(rest)
+  const { statements: traces } = findTraceStatements(text)
+  const inIngredients = findGlutenMatches(findTraceStatements(ingredients).rest)
+  const seen = new Set(inIngredients.map((m) => m.word.toLowerCase()))
+  const inLabel = findGlutenMatches(findTraceStatements(label).rest).filter((m) => !seen.has(m.word.toLowerCase()))
+  const glutenFindings: GlutenFinding[] = [
+    ...inIngredients.map((m) => ({ ...m, where: 'zutaten' as const })),
+    ...inLabel.map((m) => ({ ...m, where: 'verpackung' as const })),
+  ]
+  const glutenSources = [...new Set(glutenFindings.flatMap((f) => f.cereal.split(', ')))]
   const glutenTraces = traces.filter((t) => findGlutenSources(t).length > 0)
   if (tags.includes('allergens:en:gluten') && !glutenSources.includes('Gluten')) {
     glutenSources.push('Gluten (laut Open Food Facts)')
+    glutenFindings.push({ word: 'Gluten', cereal: 'Gluten (laut Open Food Facts)', where: 'datenbank' })
   }
 
   // 1) Sicher glutenfrei lt. Hersteller (Logo oder Herstellerbestätigung)
   if (!manufacturerDenied && (certified || confirmationValid)) {
     if (certified) {
-      reasons.push(
+      add(
         input.certifiedLabel
           ? 'Zertifizierungslogo (durchgestrichene Ähre) auf der Verpackung bestätigt.'
           : 'Zertifiziert glutenfrei laut externer Datenbank.',
       )
     }
     if (confirmationValid) {
-      reasons.push(
+      add(
         `Hersteller hat am ${latest.confirmed_at} Glutenfreiheit bestätigt (gültig bis ${confirmationValidUntil}).`,
       )
     }
     if (glutenSources.length) {
-      reasons.push(
+      add(
         `Hinweis: Zutatenliste nennt ${glutenSources.join(', ')} – bei zertifizierten Produkten unter 20 ppm (z. B. glutenfreie Weizenstärke).`,
       )
     }
-    return { status: 'verified_gluten_free', reasons, glutenSources, traces, confirmationValidUntil }
+    return { status: 'verified_gluten_free', reasons, explanation, glutenFindings, glutenSources, traces, confirmationValidUntil }
   }
 
   if (manufacturerDenied) {
-    reasons.push(`Hersteller hat am ${latestAny.confirmed_at} Glutenfreiheit NICHT bestätigt.`)
+    add(`Hersteller hat am ${latestAny.confirmed_at} Glutenfreiheit NICHT bestätigt.`)
   } else if (latest && !confirmationValid) {
-    reasons.push(
+    add(
       `Herstellerbestätigung vom ${latest.confirmed_at} ist abgelaufen (älter als ${CONFIRMATION_VALID_MONTHS} Monate) – bitte erneut anfragen.`,
     )
   }
   if (certifiedByText && !certified) {
-    reasons.push(
+    add(
       'Text deutet auf eine Zertifizierung hin – bitte Logo auf der Verpackung prüfen und bestätigen.',
     )
   }
 
   // 2) Enthält Gluten
   if (glutenSources.length) {
-    reasons.push(`Glutenhaltige Zutaten gefunden: ${glutenSources.join(', ')}.`)
-    return { status: 'contains_gluten', reasons, glutenSources, traces, confirmationValidUntil }
+    const where = (w: GlutenFinding['where']) => glutenFindings.filter((f) => f.where === w)
+    if (where('zutaten').length) add('In der Zutatenliste stehen glutenhaltige Zutaten:', where('zutaten'))
+    if (where('verpackung').length) add('Im erkannten Verpackungstext stehen glutenhaltige Wörter:', where('verpackung'))
+    if (where('datenbank').length) add('Open Food Facts führt Gluten als Allergen auf.')
+    return { status: 'contains_gluten', reasons, explanation, glutenFindings, glutenSources, traces, confirmationValidUntil }
   }
 
   // 3) Spuren von Gluten
   const traceTagsGluten = tags.some((t) => t === 'traces:en:gluten')
   if (glutenTraces.length || traceTagsGluten || manufacturerDenied) {
-    if (glutenTraces.length) reasons.push(`Spurenhinweis: „${glutenTraces.join('; ')}“.`)
-    if (traceTagsGluten) reasons.push('Open Food Facts listet Gluten als mögliche Spur.')
-    return { status: 'may_contain_gluten', reasons, glutenSources, traces, confirmationValidUntil }
+    if (glutenTraces.length)
+      add('Spurenhinweis auf der Verpackung – mögliche Spuren von:', findGlutenMatches(glutenTraces.join(' ')))
+    if (traceTagsGluten) add('Open Food Facts listet Gluten als mögliche Spur.')
+    return { status: 'may_contain_gluten', reasons, explanation, glutenFindings, glutenSources, traces, confirmationValidUntil }
   }
 
   // 4) Keine glutenhaltigen Zutaten (auch wenn „glutenfrei“ draufsteht, aber ohne Logo/Bestätigung)
@@ -237,22 +298,22 @@ export function classify(input: ClassificationInput): Classification {
     GLUTEN_FREE_CLAIM.test(text) || tags.some((t) => /^labels:.*(gluten-free|no-gluten)/.test(t))
   if (ingredients || claim || traces.length) {
     if (input.ingredientsReliable === false) {
-      reasons.push('Die Zutatenliste wurde unsicher gelesen – bitte prüfen oder korrigieren, bevor du dich darauf verlässt.')
-      return { status: 'unknown', reasons, glutenSources, traces, confirmationValidUntil }
+      add('Die Zutatenliste wurde unsicher gelesen – bitte prüfen oder korrigieren, bevor du dich darauf verlässt.')
+      return { status: 'unknown', reasons, explanation, glutenFindings, glutenSources, traces, confirmationValidUntil }
     }
-    reasons.push('Keine glutenhaltigen Zutaten gefunden.')
+    add('Keine glutenhaltigen Zutaten gefunden.')
     if (claim)
-      reasons.push('„Glutenfrei“ steht auf der Verpackung, bei der Datenbank oder Hersteller-Website – aber ohne Zertifizierungslogo.')
-    if (traces.length) reasons.push(`Spurenhinweis ohne Gluten: „${traces.join('; ')}“.`)
-    reasons.push('Kreuzkontamination (Spuren) ist nicht ausgeschlossen.')
-    reasons.push(
+      add('„Glutenfrei“ steht auf der Verpackung, bei der Datenbank oder Hersteller-Website – aber ohne Zertifizierungslogo.')
+    if (traces.length) add(`Spurenhinweis ohne Gluten: „${traces.join('; ')}“.`)
+    add('Kreuzkontamination (Spuren) ist nicht ausgeschlossen.')
+    add(
       'Für „Sicher glutenfrei“: Hersteller anfragen (gilt 6 Monate) oder Zertifizierungslogo bestätigen.',
     )
-    return { status: 'unverified_gluten_free', reasons, glutenSources, traces, confirmationValidUntil }
+    return { status: 'unverified_gluten_free', reasons, explanation, glutenFindings, glutenSources, traces, confirmationValidUntil }
   }
 
-  reasons.push('Zu wenig Informationen. Bitte die Zutatenliste fotografieren.')
-  return { status: 'unknown', reasons, glutenSources, traces, confirmationValidUntil }
+  add('Zu wenig Informationen. Bitte die Zutatenliste fotografieren.')
+  return { status: 'unknown', reasons, explanation, glutenFindings, glutenSources, traces, confirmationValidUntil }
 }
 
 export const STATUS_META: Record<GlutenStatus, { label: string; short: string; tone: string }> = {

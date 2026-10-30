@@ -19,9 +19,9 @@ export const TRUSTED_QUALITY = 0.9
 
 const HEADING = /\b(zutaten|ingredients|ingr[ée]dients)\b/i
 // Ende der Zutatenliste. Die Erkennung verschreibt sich oft („Durchschaittliche“), deshalb auch Wortanfänge
-// und typische Zeilen der Nährwerttabelle.
+// und typische Zeilen der Nährwerttabelle. Zubereitung und Lagerhinweise gehören nicht zu den Zutaten.
 const STOP =
-  /n[äa]hrw|durchsch|nutrition|brennw|kohlenhydrat|fetts[äa]ure|eiwei[ßs]|davon\b|mindestens haltbar|zu verbrauchen|aufbewahrung|inhalt\b|hergestellt in|herkunft/i
+  /n[äa]hrw|durchsch|nutrition|brennw|kohlenhydrat|fetts[äa]ure|eiwei[ßs]|davon\b|zubereit|koch(?:en|t)\b|lager|trocken\b|lichtgesch|mindestens haltbar|haltbar|zu verbrauchen|aufbewahr|inhalt\b|hergestellt in|herkunft/i
 const MAX_BLOCK_LINES = 8
 
 const letters = (s: string) => (s.match(/\p{L}/gu) ?? []).length
@@ -86,13 +86,20 @@ export function extractIngredientBlock(lines: OcrLine[]): IngredientBlock | null
 
   const block: OcrLine[] = []
   for (const line of lines.slice(start, start + MAX_BLOCK_LINES)) {
-    const lenient = stripSymbols(
-      line.words
-        .filter((w) => keepWord(w, LENIENT_WORD_CONFIDENCE))
-        .map((w) => w.text)
-        .join(' '),
-    )
-    if (block.length > 0 && STOP.test(lenient)) break
+    if (block.length > 0) {
+      // Erstes Wort, ab dem der Text nicht mehr zur Zutatenliste gehört (z. B. „Trocken lagern“)
+      let seen = ''
+      let cut = -1
+      line.words.forEach((w, i) => {
+        if (cut >= 0 || !keepWord(w, LENIENT_WORD_CONFIDENCE)) return
+        seen += `${seen ? ' ' : ''}${w.text}`
+        if (STOP.test(seen)) cut = i
+      })
+      if (cut >= 0) {
+        if (cut > 0) block.push({ words: line.words.slice(0, cut) })
+        break
+      }
+    }
     block.push(line)
   }
 
@@ -121,6 +128,14 @@ export function extractIngredientBlock(lines: OcrLine[]): IngredientBlock | null
 const TRACE =
   /(?:kann|k[öo]nnen|k[öo]nnte)[^.]{0,40}?spuren[^.]*\.?|spuren\s+von[^.]*\.?|may contain[^.]*\.?|(?:in einem|im selben|im gleichen) betrieb[^.]*\.?/gi
 
+// Alles ab einer dieser Überschriften ist keine Zutat mehr.
+const SECTION_START =
+  /(?<!\p{L})(zubereitung|lagerung|aufbewahrung|n[äa]hrwert\w*|brennwert|durchschnittliche|mindestens haltbar|nach dem [öo]ffnen|hergestellt (?:in|f[üu]r)|inhalt)(?!\p{L})\s*[:.]?/iu
+
+// Einträge, die Kochanweisung, Lagerhinweis oder Verzehrempfehlung sind (keine Zutaten).
+const INSTRUCTION =
+  /(?<!\p{L})(zubereitung|zubereiten|kochen|gekocht|k[öo]cheln|garen|erhitzen|lagern|lagerung|aufbewahren|aufbewahrung|haltbar\w*|trocken|k[üu]hl|lichtgesch\w+|w[äa]rmegesch\w+|w[äa]rme-?|sch[üu]tteln|[öo]ffnen|abspülen|abgie(?:ß|ss)en|minuten|verbrauchen|gebrauch|hinweis\w*|n[äa]hrwert\w*|brennwert|portion\w*|verzehr\w*|empfehlung\w*)(?!\p{L})/iu
+
 export interface ParsedIngredients {
   items: string[]
   /** Spurenhinweise wie „Kann Spuren von Sellerie enthalten.“ */
@@ -137,17 +152,20 @@ export function parseIngredients(text: string): ParsedIngredients {
     .replace(/^\s*(zutaten|ingredients)\s*[:.]?\s*/i, '')
     .replace(/(\p{L})-\s*\n\s*(\p{Ll})/gu, '$1$2')
     .replace(/\s+/g, ' ')
+  // Zubereitung, Lagerung, Nährwerte … stehen nach der Zutatenliste und sind keine Zutaten
+  const sectionAt = body.search(SECTION_START)
+  const listPart = sectionAt >= 0 ? body.slice(0, sectionAt) : body
   const items: string[] = []
   let depth = 0
   let current = ''
   let rest: string | null = null
-  for (let i = 0; i < body.length; i++) {
-    const ch = body[i]
+  for (let i = 0; i < listPart.length; i++) {
+    const ch = listPart[i]
     if (ch === '(' || ch === '[') depth++
     if (ch === ')' || ch === ']') depth = Math.max(0, depth - 1)
     // Punkt + Leerzeichen außerhalb von Klammern beendet die Liste; Dezimalzahlen („2.5“) haben kein Leerzeichen
-    if (ch === '.' && depth === 0 && /^\s+\S/.test(body.slice(i + 1))) {
-      rest = body.slice(i + 1).trim()
+    if (ch === '.' && depth === 0 && /^\s+\S/.test(listPart.slice(i + 1))) {
+      rest = listPart.slice(i + 1).trim()
       break
     }
     if ((ch === ',' || ch === ';') && depth === 0) {
@@ -165,7 +183,8 @@ export function parseIngredients(text: string): ParsedIngredients {
           // hochgestellte Fußnotenziffern kleben am Wort („Kakaopulver1“); „B12“ bleibt unberührt
           .replace(/(\p{L}{5,})\d{1,2}(?=[\s)]|$)/gu, '$1'),
       )
-      .filter((i) => i.length > 0),
+      // Kochanweisungen, Lagerhinweise und ganze Sätze sind keine Zutaten
+      .filter((i) => i.length > 0 && !INSTRUCTION.test(i) && i.replace(/\([^)]*\)/g, '').split(/\s+/).length <= 9),
     traces,
     rest: rest || null,
   }

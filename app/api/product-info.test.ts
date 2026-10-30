@@ -61,6 +61,11 @@ describe('extractIngredients', () => {
     expect(extractIngredients(text)).toBe('Reismehl (91%), Tapiokamehl, Speisesalz')
   })
 
+  it('schneidet Lagerung und Zubereitung ab', () => {
+    expect(extractIngredients('Zutaten: Reismehl, Salz Lagerung: trocken lagern Zubereitung: kochen')).toBe('Reismehl, Salz')
+    expect(extractIngredients('Zutaten:\nReismehl, Salz\nTrocken lagern\nNährwerte')).toBe('Reismehl, Salz')
+  })
+
   it('findet nichts ohne Zutatenüberschrift', () => {
     expect(extractIngredients('Unsere Nudeln sind lecker, bunt und gesund.')).toBeNull()
   })

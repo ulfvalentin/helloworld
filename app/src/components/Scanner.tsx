@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ScanFlow } from '../lib/useScanFlow'
+import { CameraIcon, ImageUpIcon } from './icons'
 
 const STEPS = [
   { title: 'Vorderseite fotografieren', hint: 'Produktname und Logo sollen zu sehen sein.' },
@@ -43,11 +44,11 @@ export function Scanner({ scan }: { scan: ScanFlow }) {
       <div className="photo-buttons">
         {/* mit capture öffnet das Handy die Kamera, ohne die Galerie (iOS bietet beides nie zugleich an) */}
         <label className="photo-button">
-          📷 Foto aufnehmen
+          <CameraIcon /> Foto aufnehmen
           <input type="file" accept="image/*" capture="environment" onChange={add} hidden disabled={busy} />
         </label>
         <label className="photo-button secondary">
-          🖼️ Foto hochladen
+          <ImageUpIcon /> Foto hochladen
           <input type="file" accept="image/*" multiple onChange={add} hidden disabled={busy} />
         </label>
       </div>

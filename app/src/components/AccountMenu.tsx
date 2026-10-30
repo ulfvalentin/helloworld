@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { UserIcon } from './icons'
 
 /** Personen-Icon oben rechts; öffnet ein kleines Menü mit E-Mail-Adresse und „Abmelden“. */
 export function AccountMenu({ email, onSignOut }: { email: string | null; onSignOut: () => void }) {
@@ -29,10 +30,7 @@ export function AccountMenu({ email, onSignOut }: { email: string | null; onSign
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="8" r="4" />
-          <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
-        </svg>
+        <UserIcon size={24} />
       </button>
       {open && (
         <div className="menu" role="menu">

@@ -1,18 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CONFIRMATION_VALID_MONTHS, classify } from '../lib/classify'
 import { repository } from '../lib/repository'
 import type { Product } from '../types'
-import { StatusBadge } from './StatusBadge'
-
-export function Reasons({ reasons }: { reasons: string[] }) {
-  return (
-    <ul className="reasons">
-      {reasons.map((r) => (
-        <li key={r}>{r}</li>
-      ))}
-    </ul>
-  )
-}
+import { CheckIcon, XIcon } from './icons'
+import { Verdict } from './Verdict'
 
 export function ProductDetail({
   product,
@@ -25,7 +16,19 @@ export function ProductDetail({
   onEdit: () => void
   onBack: () => void
 }) {
-  const validUntil = classify({ confirmations: product.confirmations }).confirmationValidUntil
+  // Begründung mit den gefundenen Wörtern aus den gespeicherten Angaben neu berechnen
+  const result = useMemo(
+    () =>
+      classify({
+        ingredientsText: product.ingredients_text,
+        labelText: product.label_text,
+        certifiedLabel: product.certified_label,
+        externalTags: product.external_tags,
+        confirmations: product.confirmations,
+      }),
+    [product],
+  )
+  const validUntil = result.confirmationValidUntil
   return (
     <div className="stack">
       <button className="link" onClick={onBack}>
@@ -37,10 +40,9 @@ export function ProductDetail({
         <p className="muted">
           {[product.brand, product.barcode].filter(Boolean).join(' · ')}
         </p>
-        <StatusBadge status={product.status} large />
-        <Reasons reasons={product.status_reasons} />
         <button onClick={onEdit}>Angaben bearbeiten</button>
       </div>
+      <Verdict result={result} />
 
       <div className="card stack">
         <h3>Herstellerbestätigungen</h3>
@@ -55,7 +57,15 @@ export function ProductDetail({
           <ul className="confirmations">
             {product.confirmations.map((c) => (
               <li key={c.id}>
-                <strong>{c.confirmed_at}</strong> – {c.confirms_gluten_free ? '✅ glutenfrei bestätigt' : '❌ nicht bestätigt'}
+                <strong>{c.confirmed_at}</strong> – {c.confirms_gluten_free ? (
+                  <span className="inline-status ok">
+                    <CheckIcon /> glutenfrei bestätigt
+                  </span>
+                ) : (
+                  <span className="inline-status bad">
+                    <XIcon /> nicht bestätigt
+                  </span>
+                )}
                 {c.contact && <span className="muted"> · {c.contact}</span>}
                 {c.note && <div className="small">{c.note}</div>}
               </li>
