@@ -11,6 +11,12 @@ export interface ParsedEmail {
   /** Text der Herstellerantwort ohne Zitate und Signaturketten */
   body: string
   manufacturer: string | null
+  /** Unterzeichner der Antwort (aus der Signatur) mit Funktion, Mail, Telefon und Website */
+  contactName: string | null
+  contactRole: string | null
+  contactEmail: string | null
+  phone: string | null
+  website: string | null
   product: string | null
   barcode: string | null
   /** yes: glutenfrei bestätigt · no: nicht bestätigt/Spuren · unclear: keine eindeutige Aussage */
@@ -21,7 +27,9 @@ export interface ParsedEmail {
 
 const MONTHS = ['januar', 'februar', 'märz', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'dezember']
 const FREE_MAIL = /^(gmail|googlemail|web|gmx|t-online|outlook|hotmail|yahoo|icloud|freenet|posteo|mail|live|me)\./i
-const COMPANY = /([\p{Lu}][\p{L}0-9&.\-]*(?:[ \t]+[\p{L}0-9&.\-]+){0,3}?[ \t]+(?:GmbH[ \t]*&[ \t]*Co\.?[ \t]*KG|GmbH|AG|KG|SE|e\.\s?K\.|OHG|UG))/u
+const LEGAL = String.raw`(?:GmbH\s*&\s*Co\.?\s*KGaA|GmbH\s*&\s*Co\.?\s*KG|GmbH|mbH|AG|KGaA|KG|SE|e\.\s?K\.|e\.\s?V\.|OHG|UG(?:\s*\(haftungsbeschränkt\))?|GbR)`
+/** Firmenname am Zeilenanfang bis zur Rechtsform („Importhaus Wilms / Impuls GmbH & Co. KG“). */
+const COMPANY_LINE = new RegExp(String.raw`^\W*([\p{Lu}][^,;\n]*?\b${LEGAL})(?![\p{L}])`, 'u')
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -192,27 +200,68 @@ function ean(text: string): string | null {
 
 const stripPrefix = (s: string) => s.replace(/^\s*((AW|RE|WG|FW|FWD|Antwort|Weitergeleitet)\s*:\s*)+/i, '').trim()
 
+const GREETING = /^\s*(?:Mit\s+(?:freundlichen|besten|herzlichen|sonnigen)\s+Grüßen|Freundliche\s+Grüße|Beste\s+Grüße|Viele\s+Grüße|Herzliche\s+Grüße|Liebe\s+Grüße|Schöne\s+Grüße|Grüße|Best\s+regards|Kind\s+regards|Regards|Mfg|MfG)\b[\s,!.]*$/im
+const SEPARATOR = /^\s*[-_=*~]{4,}\s*$/
+const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/
+const NOT_PRODUCT = /^(?:Sie|Ihnen|Ihr|Ihre|Ihren|Wir|Uns|Unser|Unsere|Unseren|Dies|Dieses|Diese|Es|Der|Die|Das)$/
+
+/** Signatur: alles nach der Grußformel (sonst die letzten Zeilen). */
+function signatureLines(body: string): string[] {
+  const lines = body.split(/\r?\n/)
+  const g = lines.findIndex((l) => GREETING.test(l))
+  return (g >= 0 ? lines.slice(g + 1) : lines.slice(-15)).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean)
+}
+
+function findSignature(body: string) {
+  const lines = signatureLines(body)
+  const block: string[] = []
+  for (const l of lines) {
+    if (SEPARATOR.test(l)) break
+    block.push(l)
+  }
+  const isName = (l: string) => /^[\p{L}][\p{L}.'’\- ]{2,40}$/u.test(l) && l.split(' ').length <= 5 && !new RegExp(LEGAL).test(l)
+  const name = block[0] && isName(block[0]) ? block[0].replace(/[,.]$/, '') : null
+  const role = name && block[1] && isName(block[1]) && !/:/.test(block[1]) ? block[1] : null
+  const text = lines.join('\n')
+  const email = text.match(EMAIL)?.[0] ?? body.match(EMAIL)?.[0] ?? null
+  const phone = text.match(/(?:Tel(?:efon)?\.?|Fon|Phone|Mobil|Durchwahl)\s*[:.]?\s*(\+?\d[\d\s()/.\-]{6,}\d)/i)?.[1]?.replace(/\s+/g, ' ').trim() ?? null
+  const website = text.match(/\b(?:https?:\/\/)?(www\.[\w-]+(?:\.[\w-]+)*\.[a-z]{2,})/i)?.[1] ?? null
+  const company = lines.map((l) => l.match(COMPANY_LINE)?.[1]).find(Boolean) ?? null
+  return { name, role, email, phone, website, company: company ? company.replace(/\s+/g, ' ').replace(/&\s*Co/, '& Co').trim() : null }
+}
+
+const cleanProduct = (s: string) =>
+  s.replace(/^[„"“'\s]+|[“"”'.,:;\s]+$/g, '').replace(/\s+/g, ' ')
+
+const PRODUCT_WORDS = String.raw`((?:[\p{Lu}][\p{L}0-9'’\-]*)(?:\s+(?:[\p{Lu}0-9][\p{L}0-9'’\-%]*|&|und))*)`
+
 function findProduct(subject: string | null, body: string): string | null {
-  const clean = (s: string) => s.replace(/^[„"“'\s]+|[“"”'.,:;\s]+$/g, '').replace(/\s+/g, ' ')
-  const fromBody =
+  const labelled =
     body.match(/Produkt(?:name|bezeichnung)?\s*:\s*(.+)/i)?.[1] ??
     body.match(/(?:Produkt|Artikel)\s+[„"“]([^“"”\n]{3,80})[“"”]/i)?.[1] ??
     body.match(/[„"“]([^“"”\n]{3,80})[“"”]/)?.[1]
-  if (fromBody) return clean(fromBody)
+  if (labelled) return cleanProduct(labelled)
+  const text = body.replace(/\s+/g, ' ')
+  // „… mit, dass das Wan Kwai Ketjap Manis ohne den Zusatz …“ / „… dass unser Reismehl glutenfrei ist“
+  const named = [
+    ...text.matchAll(new RegExp(String.raw`(?:dass|ob)\s+(?:das|der|die|unser(?:e|en)?|ihr(?:e|en)?|dieses|diese|dieser)?\s*(?:Produkt\s+)?${PRODUCT_WORDS}\s+(?=[\p{Ll}])`, 'gu')),
+    ...text.matchAll(new RegExp(String.raw`(?:Anfrage|Frage|Nachfrage)\s+(?:zu|zum|zur|bezüglich|betreffend|über)\s+(?:dem|der|den|unserem|unserer)?\s*(?:Produkt\s+)?${PRODUCT_WORDS}`, 'gu')),
+    ...text.matchAll(new RegExp(String.raw`(?:unser|unsere|das|der|die)\s+Produkt\s+${PRODUCT_WORDS}`, 'gu')),
+  ]
+    .map((m) => cleanProduct(m[1]))
+    .find((p) => p.length >= 3 && !NOT_PRODUCT.test(p.split(' ')[0]) && !NOT_PRODUCT.test(p))
+  if (named) return named
   const sub = subject ? stripPrefix(subject) : ''
   const fromSubject = sub.match(/(?:anfrage|frage|rückfrage|nachfrage|information(?:en)?|auskunft)?\s*(?:zu|zum|zur|bzgl\.?|betreffend|betr\.?|über)\s+(.{3,100})/i)?.[1]
-  return clean(fromSubject ?? sub) || null
+  return cleanProduct(fromSubject ?? sub) || null
 }
 
-function findManufacturer(body: string, fromName: string | null, fromEmail: string | null): string | null {
-  // Grußformel gehört nicht zum Firmennamen („Mit freundlichen Grüßen Theodor Kattus GmbH“)
-  const plain = body.replace(/^.*\b(?:Grüßen|Grüße|Gruß|Regards)\b[,\s]*/gim, '')
-  const company = plain.match(COMPANY)?.[1] ?? fromName?.match(COMPANY)?.[1]
-  if (company) return company.replace(/\s+/g, ' ').trim()
-  const domain = fromEmail?.split('@')[1]
+function findManufacturer(company: string | null, fromName: string | null, email: string | null): string | null {
+  if (company) return company
+  const domain = email?.split('@')[1]
   if (domain && !FREE_MAIL.test(domain)) {
-    const name = domain.replace(/^(www|mail|info|service)\./, '').split('.')[0]
-    return name.charAt(0).toUpperCase() + name.slice(1)
+    const name = domain.replace(/^(www|mail|info|service)\./, '').split('.')[0].replace(/[-_]+/g, ' ')
+    return name.replace(/\b\p{L}/gu, (c) => c.toUpperCase())
   }
   return fromName
 }
@@ -233,13 +282,19 @@ export function parseEmail(raw: string): ParsedEmail {
   const dateSource = fwd?.date ?? headers.date ?? ''
   const date = (dateSource && parseDate(dateSource)) || null
   const { verdict, quote } = judge(body)
+  const sig = findSignature(body)
   return {
     subject: subject ? stripPrefix(subject) : null,
     fromName: address.name,
     fromEmail: address.email,
     date,
     body,
-    manufacturer: findManufacturer(body, address.name, address.email),
+    manufacturer: findManufacturer(sig.company, address.name, address.email ?? sig.email),
+    contactName: sig.name,
+    contactRole: sig.role,
+    contactEmail: sig.email,
+    phone: sig.phone,
+    website: sig.website,
     product: findProduct(subject, body),
     barcode: ean(`${subject ?? ''}\n${body}`),
     verdict,
