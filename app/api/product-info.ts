@@ -25,7 +25,7 @@ export interface ProductInfoResult {
   /** Sätze der Seite, die Gluten erwähnen („Alle unsere Nudeln sind glutenfrei.“) */
   glutenStatements: string[]
   allergens: string | null
-  /** false: Zutaten stammen von einem sehr ähnlichen Produkt (gleiche glutenrelevante Zutaten, sonst leicht abweichend) */
+  /** false: Produkt nicht nachweislich dasselbe (nur Zutatenwörter passen) oder ähnliche Varianten mit gleichen Gluten-Zutaten */
   exact: boolean
   /** Besuchte Adressen, zur Nachvollziehbarkeit */
   checked: string[]
@@ -299,6 +299,18 @@ export function brandSlug(brand?: string): string {
   return normalize((brand ?? '').split(/[,;/]/)[0]).replace(/[^a-z0-9]/g, '')
 }
 
+/**
+ * Ist die Seite *nachweislich* dieses Produkt? Nur Barcode oder Produktname beweisen das –
+ * übereinstimmende Zutatenwörter allein zeigen höchstens ein ähnliches Produkt.
+ */
+export function isIdentified(page: Page, q: ProductInfoQuery): boolean {
+  if (q.barcode && page.text.replace(/\D/g, ' ').includes(q.barcode)) return true
+  const tokens = nameTokens(q.name, q.brand)
+  if (tokens.length === 0) return false
+  const head = normalize(`${page.title} ${page.h1} ${page.url}`)
+  return tokens.filter((t) => head.includes(t)).length / tokens.length >= 0.75
+}
+
 /** Wie sicher ist, dass die Seite genau dieses Produkt beschreibt? */
 export function relevance(page: Page, q: ProductInfoQuery): number {
   let score = 0
@@ -315,7 +327,10 @@ export function relevance(page: Page, q: ProductInfoQuery): number {
   const hints = (q.hints ?? []).map(normalize).filter((h) => h.length >= 4)
   if (hints.length >= 3 && page.ingredients) {
     const list = normalize(page.ingredients)
-    score += (hints.filter((h) => list.includes(h)).length / hints.length) * 3
+    const ratio = hints.filter((h) => list.includes(h)).length / hints.length
+    // Allein anhand der Zutatenwörter zählt nur eine (fast) vollständige Übereinstimmung: Ein ähnliches
+    // Produkt (z. B. Haferdrink vs. Hafercreme) teilt die meisten Wörter, aber nicht alle.
+    score += ratio >= 0.9 ? 3 : ratio
   }
   const slug = brandSlug(q.brand)
   if (slug && normalize(`${page.title} ${page.text.slice(0, 3000)}`).replace(/[^a-z0-9]/g, '').includes(slug)) score += 0.5
@@ -350,7 +365,7 @@ export function pickBest(
     (r) =>
       normalize(r.page.ingredients ?? '') !== normalize(first.page.ingredients ?? '') && first.score - r.score < 0.5,
   )
-  if (others.length === 0) return { hit: first, ambiguous: false, exact: true }
+  if (others.length === 0) return { hit: first, ambiguous: false, exact: isIdentified(first.page, q) }
   const sig = glutenSignature(first.page.ingredients ?? '')
   if (others.some((r) => glutenSignature(r.page.ingredients ?? '') !== sig)) return { hit: null, ambiguous: true, exact: true }
   return { hit: first, ambiguous: false, exact: false }
@@ -426,7 +441,7 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
         checked: ctx.checked,
         message: exact
           ? 'Zutaten auf der Hersteller-Website gefunden.'
-          : 'Zutaten eines sehr ähnlichen Produkts gefunden – bitte mit der Packung vergleichen.',
+          : 'Passende Zutaten gefunden, aber das Produkt ist nicht eindeutig bestimmt – bitte mit der Packung vergleichen.',
       }
     }
     return {
