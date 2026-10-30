@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ScanFlow } from '../lib/useScanFlow'
+import { CheckProgress } from './CheckProgress'
 import { CameraIcon, ImageUpIcon } from './icons'
 
 const STEPS = [
@@ -11,7 +12,7 @@ const STEPS = [
 
 /** Scan-Bildschirm. Die Auswertung startet der „Prüfen“-Button in der unteren Leiste (siehe App). */
 export function Scanner({ scan }: { scan: ScanFlow }) {
-  const { files, setFiles, barcode, setBarcode, busy, step, error } = scan
+  const { files, setFiles, barcode, setBarcode, busy, steps, error } = scan
 
   // Vorschaubilder erzeugen und wieder freigeben. Im Effekt statt in useMemo, weil React im Entwicklungsmodus
   // Effekte zweimal ausführt und freigegebene Adressen sonst weiter benutzt würden.
@@ -77,11 +78,7 @@ export function Scanner({ scan }: { scan: ScanFlow }) {
         />
       </label>
 
-      {busy && (
-        <p className="progress" role="status">
-          {step}
-        </p>
-      )}
+      {steps && <CheckProgress steps={steps} />}
       {error && <p className="error">{error}</p>}
     </div>
   )

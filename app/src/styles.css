@@ -153,3 +153,35 @@ nav button[aria-disabled='true'] { opacity: 0.55; }
 .notice-box li.gluten { color: var(--red); font-weight: 700; }
 .notice-box .box-title strong, .notice-box li { color: var(--text); }
 .notice-box li.gluten { color: var(--red); }
+
+/* Produkt auf einen Blick */
+.summary dl { margin: 0; display: grid; gap: 10px; }
+.summary dl > div { display: grid; grid-template-columns: 84px 1fr; gap: 8px; align-items: baseline; }
+.summary dt { color: var(--muted); font-size: 0.85rem; }
+.summary dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.summary dd.missing { color: var(--muted); font-weight: 400; font-style: italic; }
+.summary dd small { color: var(--muted); font-weight: 400; }
+
+/* Prüfschritte (Fortschritt und Ergebnis) */
+.check-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.check-list li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; }
+.check-list li > .icon { margin-top: 2px; }
+.check-list small { display: block; color: var(--muted); font-size: 0.85rem; font-weight: 400; }
+.check-list li.step-wartet { opacity: 0.55; }
+.check-list li.result-error > .icon { color: var(--red); }
+.check-list li.result-warn > .icon { color: var(--orange); }
+.check-list a { color: var(--highlight-text); font-weight: 600; }
+.check-progress { border-top: 1px solid var(--border); padding-top: 12px; }
+.check-progress h3 { margin: 0 0 10px; }
+.check-steps summary { cursor: pointer; list-style: none; margin-bottom: 10px; color: var(--text); }
+.summary-part { display: block; }
+.check-steps summary::-webkit-details-marker { display: none; }
+.check-steps summary h3 { display: inline; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Hinweise */
+.notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.notes li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; }
+.notes li > .icon { margin-top: 2px; }
+.notes li.note-warn { font-weight: 600; }

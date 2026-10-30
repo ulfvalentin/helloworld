@@ -1,5 +1,3 @@
-import type { ProductInput } from '../types'
-
 export interface ManufacturerResult {
   found: boolean
   sourceUrl: string | null
@@ -37,23 +35,5 @@ export async function lookupManufacturer(q: ManufacturerQuery): Promise<Manufact
     return (await res.json()) as ManufacturerResult
   } catch {
     return null
-  }
-}
-
-const MARK = 'Hersteller-Website:'
-
-/** Übernimmt Zutaten und Gluten-Aussagen der Hersteller-Seite in die Produktangaben. */
-export function applyManufacturer(input: ProductInput, result: ManufacturerResult): ProductInput {
-  if (!result.found || !result.ingredients) return input
-  const kept = (input.label_text ?? '')
-    .split('\n')
-    .filter((line) => !line.startsWith(MARK))
-    .join('\n')
-    .trim()
-  const statements = result.glutenStatements.map((s) => `${MARK} ${s}`)
-  return {
-    ...input,
-    ingredients_text: result.ingredients,
-    label_text: [kept, ...statements].filter(Boolean).join('\n') || null,
   }
 }
