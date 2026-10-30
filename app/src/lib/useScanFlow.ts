@@ -61,11 +61,17 @@ export function useScanFlow(onDraft: (d: Draft) => void) {
     await run({ files, barcode })
   }
 
+  /** Barcode live erkannt: sofort mit den vorhandenen Fotos prüfen. */
+  async function startWithBarcode(code: string) {
+    if (busy) return
+    await run({ files, barcode: code })
+  }
+
   /** Prüft noch einmal mit den bisherigen Fotos plus weiteren (bereits gelesene Fotos werden nicht neu gelesen). */
   async function addPhotos(more: File[], carry: { barcode: string | null; name: string | null; brand: string | null }) {
     if (busy || more.length === 0) return
     await run({ files: [...used.current, ...more], barcode: carry.barcode ?? '', name: carry.name, brand: carry.brand })
   }
 
-  return { files, setFiles, barcode, setBarcode, steps, error, busy, canStart, start, addPhotos }
+  return { files, setFiles, barcode, setBarcode, steps, error, busy, canStart, start, startWithBarcode, addPhotos }
 }
