@@ -70,9 +70,11 @@ const words = (s: string) => normalizeText(s).split(/[^a-zäöüß0-9]+/).filter
 
 function listOf(source: SourceId, text: string | null | undefined, extra: Partial<SourceList> = {}): SourceList | null {
   if (!text?.trim()) return null
-  const items = parseIngredients(text).items
-  // Gespeichert wird die bereinigte Liste (nur Zutaten); Spurenhinweise und Rest bleiben im Rohtext des Fotos
-  return items.length ? { source, text: items.join(', '), items, quality: 'gut', ...extra } : null
+  const { items, traces } = parseIngredients(text)
+  // Gespeichert wird die bereinigte Liste; Spurenhinweise bleiben als Satz dabei, denn sie zählen zur Zutatenliste
+  // (nur daraus wird auf Gluten geschlossen). Der übrige Verpackungstext bleibt im Rohtext des Fotos.
+  const full = [items.join(', '), ...traces.map((t) => t.replace(/[.\s]+$/, ''))].join('. ')
+  return items.length ? { source, text: full, items, quality: 'gut', ...extra } : null
 }
 
 /** Alles, was das Sammeln der Quellen ergeben hat. Daraus entsteht das Ergebnis (`assembleDraft`). */
@@ -244,7 +246,7 @@ export function assembleDraft(c: CheckContext, override: { name?: string | null;
 
 export async function runCheck(
   deps: CheckDeps,
-  input: { files: Blob[]; barcode: string },
+  input: { files: Blob[]; barcode: string; /** vom Nutzer eingegebene Angaben (z. B. beim Nachreichen weiterer Fotos) */ name?: string | null; brand?: string | null },
   onProgress: (steps: ProgressStep[]) => void = () => {},
 ): Promise<Draft> {
   const progress: ProgressStep[] = ORDER.map((id) => ({ id, label: STEP_LABELS[id], state: 'wartet' }))
@@ -321,12 +323,12 @@ export async function runCheck(
 
   // ---- 2. Herstellerseite
   set('hersteller', 'läuft', 'Website durchsuchen …')
-  const name = ctx.existing?.name ?? ctx.external?.name ?? null
+  const name = input.name || (ctx.existing?.name ?? ctx.external?.name ?? null)
   ctx.searched = Boolean(name || ctx.code || ctx.hints.length >= 3)
   if (ctx.searched)
     ctx.manufacturer = await deps.lookupManufacturer({
       name,
-      brand: ctx.existing?.brand ?? ctx.external?.brand ?? ctx.external?.company ?? ctx.photoCompany,
+      brand: input.brand || (ctx.existing?.brand ?? ctx.external?.brand ?? ctx.external?.company ?? ctx.photoCompany),
       barcode: ctx.code,
       urls: [...(ctx.external?.link ? [ctx.external.link] : []), ...ctx.websites],
       hints: ctx.hints,
@@ -335,7 +337,7 @@ export async function runCheck(
 
   // ---- 5. Abgleich
   set('abgleich', 'läuft', 'Quellen vergleichen …')
-  const draft = assembleDraft(ctx)
+  const draft = assembleDraft(ctx, { name: input.name, brand: input.brand })
   set('abgleich', 'fertig', draft.check.reconciliation.summary)
   return draft
 }

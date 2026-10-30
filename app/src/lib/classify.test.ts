@@ -142,7 +142,7 @@ describe('classify', () => {
   it('unsichere Liste verdeckt trotzdem keine gefundenen Gluten-Wörter', () => {
     expect(classify({ ingredientsText: 'Weizenmehl', ingredientsReliable: false, now }).status).toBe('contains_gluten')
     expect(
-      classify({ ingredientsText: 'Reis', labelText: 'Kann Spuren von Weizen enthalten.', ingredientsReliable: false, now }).status,
+      classify({ ingredientsText: 'Reis. Kann Spuren von Weizen enthalten.', ingredientsReliable: false, now }).status,
     ).toBe('may_contain_gluten')
   })
 
@@ -154,14 +154,12 @@ describe('classify', () => {
     expect(classify({ now }).status).toBe('unknown')
   })
 
-  it('Open-Food-Facts-Tags werden genutzt', () => {
-    expect(
-      classify({ externalTags: ['labels:en:gluten-free'], ingredientsText: 'Reis', now }).status,
-    ).toBe('unverified_gluten_free')
-    expect(classify({ externalTags: ['traces:en:gluten'], ingredientsText: 'Reis', now }).status).toBe(
-      'may_contain_gluten',
-    )
-    expect(classify({ externalTags: ['allergens:en:gluten'], now }).status).toBe('contains_gluten')
+  it('Open-Food-Facts-Tags und Verpackungsaussagen entscheiden nichts, nur die Zutatenliste', () => {
+    expect(classify({ externalTags: ['labels:en:gluten-free'], ingredientsText: 'Reis', now }).status).toBe('unverified_gluten_free')
+    expect(classify({ externalTags: ['traces:en:gluten'], ingredientsText: 'Reis', now }).status).toBe('unverified_gluten_free')
+    expect(classify({ externalTags: ['allergens:en:gluten'], ingredientsText: 'Reis', now }).status).toBe('unverified_gluten_free')
+    expect(classify({ externalTags: ['allergens:en:gluten'], now }).status).toBe('unknown')
+    expect(classify({ labelText: 'Kann Spuren von Weizen enthalten. Glutenfrei', now }).status).toBe('unknown')
   })
 
   it('Lizenznummer im Text → Hinweis, aber erst nach Bestätigung geprüft', () => {
@@ -185,13 +183,13 @@ Probieren Sie auch die So aka Trocken, wärme- und Glasnudeln und weitere lichtg
     expect(r.status).toBe('unverified_gluten_free')
   })
 
-  it('Gluten außerhalb des erkannten Zutatenblocks wird trotzdem gefunden', () => {
+  it('Gluten außerhalb der Zutatenliste (z. B. Zubereitung) wird nicht gewertet', () => {
     const r = classify({
       ingredientsText: 'Zucker, Kakao',
       labelText: 'Zutaten: Zucker, Kakao Zubereitung: rühren Weizenmehl, Salz',
       now,
     })
-    expect(r.status).toBe('contains_gluten')
+    expect(r.status).toBe('unverified_gluten_free')
   })
 })
 
@@ -220,17 +218,17 @@ describe('Begründung mit gefundenen Wörtern', () => {
     expect(r.glutenFindings.every((f) => f.where === 'zutaten')).toBe(true)
   })
 
-  it('unterscheidet Zutatenliste und restlichen Verpackungstext', () => {
+  it('Wörter außerhalb der Zutatenliste (Verpackungstext) werden ignoriert', () => {
     const r = classify({ ingredientsText: 'Reis, Salz', labelText: 'Mit feinem Dinkelmehl verfeinert', now })
-    expect(r.status).toBe('contains_gluten')
-    expect(r.glutenFindings).toEqual([{ word: 'Dinkelmehl', cereal: 'Dinkel', where: 'verpackung' }])
-    expect(r.explanation[0].text).toMatch(/Verpackungstext/)
+    expect(r.status).toBe('unverified_gluten_free')
+    expect(r.glutenFindings).toEqual([])
   })
 
-  it('Open Food Facts als Quelle wird genannt', () => {
-    const r = classify({ externalTags: ['allergens:en:gluten'], now })
-    expect(r.status).toBe('contains_gluten')
-    expect(r.explanation.map((e) => e.text).join(' ')).toMatch(/Open Food Facts führt Gluten/)
+  it('Gluten in der Liste einer anderen Quelle, aber nicht in der gewählten: Widerspruch → unbekannt', () => {
+    const r = classify({ ingredientsText: 'Reis, Salz', labelText: 'Quelle Open Food Facts: Weizenmehl, Salz', now })
+    expect(r.status).toBe('unknown')
+    expect(r.explanation[0].text).toMatch(/Laut Open Food Facts/)
+    expect(r.glutenFindings).toEqual([{ word: 'Weizenmehl', cereal: 'Weizen', where: 'quelle', source: 'Open Food Facts' }])
   })
 
   it('Spuren: nennt das gefundene Wort im Spurenhinweis', () => {

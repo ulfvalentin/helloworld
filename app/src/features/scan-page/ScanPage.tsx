@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
 import { PencilIcon, SearchIcon } from '../../components/icons'
+import { CheckProgress } from '../../components/CheckProgress'
+import { PhotoButtons } from '../../components/PhotoButtons'
 import { Verdict } from '../../components/Verdict'
 import { classify } from '../../lib/classify'
 import { lookupManufacturer } from '../../lib/manufacturer'
 import { repository } from '../../lib/repository'
 import { assembleDraft } from '../../lib/runCheck'
+import type { ProgressStep } from '../../lib/runCheck'
 import type { CheckReport, Draft, IngredientInfo, Product, ProductInput } from '../../types'
 import { CheckSteps } from './CheckSteps'
 import { IngredientsSection } from './IngredientsSection'
@@ -19,10 +22,18 @@ export function ScanPage({
   draft,
   onSaved,
   onCancel,
+  onAddPhotos,
+  steps = null,
+  checkError = null,
 }: {
   draft: Draft
   onSaved: (p: Product) => void
   onCancel: () => void
+  /** Prüft erneut mit den bisherigen plus diesen Fotos; `carry` übernimmt die bisherigen Angaben */
+  onAddPhotos?: (files: File[], carry: { barcode: string | null; name: string | null; brand: string | null }) => void
+  /** Fortschritt der erneuten Prüfung (`null`: keine läuft) */
+  steps?: ProgressStep[] | null
+  checkError?: string | null
 }) {
   const [input, setInput] = useState<ProductInput>(draft.input)
   const [ingredients, setIngredients] = useState<IngredientInfo>(draft.ingredients)
@@ -47,6 +58,8 @@ export function ScanPage({
       }),
     [input, draft.existing, reliable],
   )
+  // Wurden weder Zutaten noch ein verlässlicher Text erkannt, lassen sich weitere Fotos nachreichen
+  const needsMorePhotos = Boolean(onAddPhotos) && !context.edit && (!input.ingredients_text || !reliable)
   const set = <K extends keyof ProductInput>(key: K, value: ProductInput[K]) =>
     setInput((prev) => ({ ...prev, [key]: value }))
 
@@ -105,6 +118,29 @@ export function ScanPage({
     <div className="stack" aria-label="Scan-Seite" data-page="scan-page">
       <Verdict result={result} />
       <ProductSummary input={input} identity={check.identity} />
+
+      {needsMorePhotos && (
+        <div className="card stack">
+          <h3>Weitere Fotos hinzufügen</h3>
+          <ul>
+            <li>
+              {input.ingredients_text
+                ? 'Die Zutatenliste war schwer lesbar.'
+                : 'Es wurde keine Zutatenliste erkannt.'}
+            </li>
+            <li>Zutatenliste einzeln, aus der Nähe, gerade und scharf fotografieren.</li>
+            <li>Die bisherigen Fotos bleiben erhalten.</li>
+          </ul>
+          <PhotoButtons
+            disabled={Boolean(steps)}
+            onPick={(files) =>
+              onAddPhotos!(files, { barcode: input.barcode, name: input.name, brand: input.brand })
+            }
+          />
+          {steps && <CheckProgress steps={steps} />}
+          {checkError && <p className="error">{checkError}</p>}
+        </div>
+      )}
 
       <div className="card stack">
         <h3>Zutaten</h3>

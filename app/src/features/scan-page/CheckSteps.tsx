@@ -1,18 +1,19 @@
-import { CheckIcon, MinusIcon, TriangleAlertIcon, XIcon } from '../../components/icons'
+import { CheckIcon, TriangleAlertIcon, XIcon } from '../../components/icons'
 import { STEP_LABELS } from '../../lib/runCheck'
 import type { CheckReport, StepReport } from '../../types'
 
+// Jeder beendete Schritt bekommt ein Häkchen; das Ergebnis steht im Text. Nur ein Fehler zeigt ein X.
 const ICON: Record<StepReport['status'], typeof CheckIcon> = {
   found: CheckIcon,
-  none: MinusIcon,
-  skipped: MinusIcon,
+  none: CheckIcon,
+  skipped: CheckIcon,
   error: XIcon,
 }
 
 /** „So wurde geprüft“: Ergebnis jeder Quelle und des Abgleichs. */
 export function CheckSteps({ check }: { check: CheckReport }) {
   const r = check.reconciliation
-  const ReconIcon = r.status === 'consistent' ? CheckIcon : r.status === 'differs' ? TriangleAlertIcon : MinusIcon
+  const ReconIcon = r.status === 'differs' ? TriangleAlertIcon : CheckIcon
   return (
     <details className="card check-steps" open>
       <summary>

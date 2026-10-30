@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { lookupManufacturer } from './manufacturer'
 import { lookupOpenFoodFacts } from './openFoodFacts'
 import { repository } from './repository'
@@ -21,12 +21,12 @@ export function useScanFlow(onDraft: (d: Draft) => void) {
   /** Fortschritt der Prüfschritte; `null`, solange nicht geprüft wird */
   const [steps, setSteps] = useState<ProgressStep[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** Fotos der letzten Prüfung – damit weitere Fotos zu denselben hinzukommen können */
+  const used = useRef<File[]>([])
   const busy = steps !== null
   const canStart = !busy && (files.length > 0 || barcode.trim().length > 0)
 
-  /** Prüft Fotos und Barcode über alle Quellen (siehe runCheck). Tut nichts ohne Eingabe. */
-  async function start() {
-    if (!canStart) return
+  async function run(input: { files: File[]; barcode: string; name?: string | null; brand?: string | null }) {
     setError(null)
     setSteps(INITIAL)
     try {
@@ -40,9 +40,10 @@ export function useScanFlow(onDraft: (d: Draft) => void) {
           lookupOpenFoodFacts,
           lookupManufacturer,
         },
-        { files, barcode },
+        input,
         setSteps,
       )
+      used.current = input.files
       onDraft(draft)
       // Für die nächste Packung leeren (die Fotos stehen jetzt im Ergebnis)
       setFiles([])
@@ -54,5 +55,17 @@ export function useScanFlow(onDraft: (d: Draft) => void) {
     }
   }
 
-  return { files, setFiles, barcode, setBarcode, steps, error, busy, canStart, start }
+  /** Prüft Fotos und Barcode über alle Quellen (siehe runCheck). Tut nichts ohne Eingabe. */
+  async function start() {
+    if (!canStart) return
+    await run({ files, barcode })
+  }
+
+  /** Prüft noch einmal mit den bisherigen Fotos plus weiteren (bereits gelesene Fotos werden nicht neu gelesen). */
+  async function addPhotos(more: File[], carry: { barcode: string | null; name: string | null; brand: string | null }) {
+    if (busy || more.length === 0) return
+    await run({ files: [...used.current, ...more], barcode: carry.barcode ?? '', name: carry.name, brand: carry.brand })
+  }
+
+  return { files, setFiles, barcode, setBarcode, steps, error, busy, canStart, start, addPhotos }
 }
