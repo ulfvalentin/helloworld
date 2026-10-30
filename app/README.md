@@ -1,4 +1,4 @@
-# GlutenCheck
+# Wheat Shield
 
 Web-App (läuft im Handy-Browser), um schnell zu erkennen, ob ein Lebensmittel Gluten enthält.
 Foto aufnehmen → Text und Barcode erkennen → Abgleich mit eigener Supabase-Datenbank und
@@ -50,3 +50,15 @@ Nützliche Views:
 - `npm run dev` – Entwicklungsserver
 - `npm test` – Tests der Einstufungsregeln
 - `npm run build` – Typecheck und Produktions-Build
+
+## Marke
+
+Logo, Farben und Schrift: `public/brand/BRAND.md`. Die Farben stehen als `--ws-*`-Variablen
+in `src/styles.css`, Archivo wird über `@fontsource/archivo` selbst ausgeliefert (kein Google Fonts).
+
+Die Lockup-SVGs enthalten den Schriftzug als Pfade. Neue oder geänderte Lockups mit `<text>`
+so umwandeln:
+
+```bash
+node scripts/outline-wordmark.mjs public/brand/svg/lockup-*.svg
+```

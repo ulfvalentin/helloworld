@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Login } from './components/Login'
+import { LogoHorizontal, LogoStacked } from './components/Logo'
 import { ProductDetail } from './components/ProductDetail'
 import { ProductEditor } from './components/ProductEditor'
 import { ProductList } from './components/ProductList'
@@ -31,21 +32,28 @@ export default function App() {
 
   return (
     <div className="app">
-      <header>
-        <h1>🌾 GlutenCheck</h1>
-        {supabase && session && (
-          <button className="link" onClick={() => supabase!.auth.signOut()}>
-            Abmelden
-          </button>
-        )}
-      </header>
+      {/* Auf Splash und Login steht das gestapelte Logo – dort kein zweites im Header */}
+      {session !== undefined && !needsLogin && (
+        <header>
+          <LogoHorizontal />
+          {supabase && session && (
+            <button className="link" onClick={() => supabase!.auth.signOut()}>
+              Abmelden
+            </button>
+          )}
+        </header>
+      )}
       {repository.mode === 'local' && (
         <p className="notice">
           Demo-Modus: Keine Supabase-Verbindung konfiguriert – Daten werden nur in diesem Browser gespeichert.
         </p>
       )}
       <main>
-        {session === undefined ? null : needsLogin ? (
+        {session === undefined ? (
+          <div className="splash">
+            <LogoStacked />
+          </div>
+        ) : needsLogin ? (
           <Login />
         ) : view.kind === 'scan' ? (
           <Scanner onDraft={(draft) => setView({ kind: 'draft', draft })} />

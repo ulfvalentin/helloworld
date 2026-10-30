@@ -1,26 +1,41 @@
 :root {
-  --bg: #f5f6f2;
-  --card: #ffffff;
-  --text: #1d2420;
-  --muted: #5f6b64;
-  --border: #dde2dc;
-  --accent: #2f7d4f;
+  /* Wheat Shield Brand-Tokens (public/brand/BRAND.md) */
+  --ws-navy: #1B2A3A;
+  --ws-gold: #E0A93B;
+  --ws-gold-text: #9A6A12; /* Gold als Text auf hellem Grund – --ws-gold ist dort zu kontrastarm */
+  --ws-ground: #F2F0EA;
+  --ws-white: #FFFFFF;
+  --ws-muted: #5C6470;
+
+  /* App-Rollen, abgeleitet aus den Brand-Tokens */
+  --bg: var(--ws-ground);
+  --card: var(--ws-white);
+  --text: var(--ws-navy);
+  --muted: var(--ws-muted);
+  --border: #dcd8cd;
+  --accent: var(--ws-navy);
+  --on-accent: var(--ws-white);
+  --highlight-text: var(--ws-gold-text);
+
+  /* Ampelfarben der Gluten-Einstufung (nicht Teil der Marke) */
   --green: #1f7a3f;
-  --lime: #6a8f12;
-  --orange: #c26a00;
+  --lime: #5d7d10;
+  --orange: #b35f00;
   --red: #c0352b;
   --grey: #6b7570;
   color-scheme: light dark;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #121614;
-    --card: #1b211e;
-    --text: #e7ece9;
-    --muted: #9aa69f;
-    --border: #2d3631;
-    --accent: #4fb07a;
+    --bg: var(--ws-navy);
+    --card: #22344a;
+    --text: var(--ws-white);
+    --muted: #a9b2bd;
+    --border: #33475e;
+    --accent: var(--ws-gold);
+    --on-accent: var(--ws-navy);
+    --highlight-text: var(--ws-gold); /* auf Navy ist das helle Gold lesbar */
     --green: #3aa864;
     --lime: #9bc23a;
     --orange: #e89a3c;
@@ -31,8 +46,12 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); }
 .app { max-width: 640px; margin: 0 auto; padding: 0 16px 96px; }
-header { display: flex; align-items: center; justify-content: space-between; }
-h1 { font-size: 1.4rem; margin: 16px 0; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+/* Bildmarke im Lockup bleibt bei 36 px Höhe über der Mindestgröße von 24 px */
+.ws-logo { display: block; line-height: 0; }
+.ws-logo img { height: 36px; width: auto; }
+.splash { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
+.lockup-stacked { width: 180px; height: auto; }
 h2 { margin: 0 0 4px; font-size: 1.2rem; }
 h3, h4 { margin: 0; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
@@ -45,9 +64,9 @@ label.checkbox { flex-direction: row; align-items: flex-start; gap: 10px; color:
 label.checkbox input { width: 22px; height: 22px; margin-top: 2px; }
 input, textarea, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; width: 100%; }
 button { font: inherit; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text); padding: 10px 14px; cursor: pointer; }
-button.primary, .photo-button { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.primary, .photo-button { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 button:disabled { opacity: 0.6; cursor: default; }
-button.link { background: none; border: none; color: var(--accent); padding: 4px 0; align-self: flex-start; }
+button.link { background: none; border: none; color: var(--highlight-text); font-weight: 600; padding: 4px 0; align-self: flex-start; }
 .photo-button { display: block; text-align: center; padding: 18px; border-radius: 12px; font-size: 1.05rem; cursor: pointer; }
 .thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
 .thumbs figure { margin: 0; display: flex; flex-direction: column; align-items: center; }
@@ -71,4 +90,4 @@ button.link { background: none; border: none; color: var(--accent); padding: 4px
 .confirmations li { border-left: 3px solid var(--border); padding-left: 10px; }
 nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--border); }
 nav button { flex: 1; max-width: 300px; }
-nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+nav button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
