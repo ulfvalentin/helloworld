@@ -8,7 +8,7 @@ const base: ProductInput = {
 }
 const found: ManufacturerResult = {
   found: true, sourceUrl: 'https://x.de/p', title: 'Haferdrink', ingredients: 'Wasser, Hafer 10 %',
-  glutenStatements: ['Von Natur aus glutenfrei.'], allergens: null, message: '',
+  glutenStatements: ['Von Natur aus glutenfrei.'], allergens: null, exact: true, message: '',
 }
 
 describe('applyManufacturer', () => {

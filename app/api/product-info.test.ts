@@ -8,6 +8,7 @@ import {
   isPrivateAddress,
   nameTokens,
   parsePage,
+  pickBest,
   relevance,
 } from './product-info'
 
@@ -120,5 +121,54 @@ describe('parsePage', () => {
     expect(p.ingredients).toBe('Reismehl (91%), Tapiokamehl, Speisesalz')
     expect(p.glutenStatements).toEqual(['Von Natur aus glutenfrei.'])
     expect(p.links.map((l) => l.href)).toEqual(['https://hersteller.de/produkte/udon'])
+  })
+})
+
+describe('pickBest', () => {
+  const page = (url: string, ingredients: string) => ({
+    url, title: 'Oat drink', h1: 'Oat drink', text: '', ingredients, glutenStatements: [], allergens: null, links: [],
+  })
+  const q = { brand: 'Oatly', urls: [], hints: ['Wasser', 'Hafer', 'Rapsöl', 'Säureregulator', 'Dikaliumphosphat'] }
+
+  it('übernimmt den eindeutig besten Treffer', () => {
+    const r = pickBest([page('a', 'Wasser, Hafer 10%, Rapsöl, Säureregulator (Dikaliumphosphat)'), page('b', 'Wasser, Hafer, Zucker')], q)
+    expect(r.hit?.page.url).toBe('a')
+    expect(r.ambiguous).toBe(false)
+    expect(r.exact).toBe(true)
+  })
+
+  it('verweigert bei gleich guten Treffern, die sich bei glutenrelevanten Zutaten unterscheiden', () => {
+    const r = pickBest(
+      [
+        page('haferdrink', 'Wasser, Hafer 10%, Rapsöl, Säureregulator (Dikaliumphosphat), Calciumcarbonat'),
+        page('mix', 'Wasser, Hafer 10%, Weizenmehl, Rapsöl, Säureregulator (Dikaliumphosphat)'),
+      ],
+      q,
+    )
+    expect(r.hit).toBeNull()
+    expect(r.ambiguous).toBe(true)
+  })
+
+  it('übernimmt ähnliche Produkte mit gleichen glutenrelevanten Zutaten, aber nicht als exakt', () => {
+    const r = pickBest(
+      [
+        page('haferdrink', 'Wasser, Hafer 10%, Rapsöl, Säureregulator (Dikaliumphosphat), Zichorienwurzelfaser'),
+        page('barista', 'Wasser, Hafer 10%, Rapsöl, Säureregulator (Dikaliumphosphat), Gellan'),
+      ],
+      q,
+    )
+    expect(r.hit).not.toBeNull()
+    expect(r.exact).toBe(false)
+  })
+
+  it('doppelte Seiten mit gleicher Zutatenliste sind nicht mehrdeutig', () => {
+    const list = 'Wasser, Hafer 10%, Rapsöl, Säureregulator (Dikaliumphosphat)'
+    expect(pickBest([page('a', list), page('b', list)], q).hit).not.toBeNull()
+  })
+
+  it('ein Barcode-Treffer setzt sich gegen ähnliche Seiten durch', () => {
+    const withCode = { ...page('code', 'Wasser, Hafer, Rapsöl, Säureregulator (Dikaliumphosphat), X'), text: 'EAN 7394376623042' }
+    const r = pickBest([withCode, page('other', 'Wasser, Hafer, Rapsöl, Säureregulator (Dikaliumphosphat), Y')], { ...q, barcode: '7394376623042' })
+    expect(r.hit?.page.url).toBe('code')
   })
 })

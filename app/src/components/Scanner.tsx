@@ -113,7 +113,7 @@ export function Scanner({ onDraft }: { onDraft: (d: Draft) => void }) {
           if (!found) ingredients = { ...ingredients, lookup: 'unavailable' }
           else if (found.found && found.ingredients) {
             input = applyManufacturer(input, found)
-            ingredients = { source: 'hersteller', trusted: true, url: found.sourceUrl, lookup: 'found', message: found.message }
+            ingredients = { source: 'hersteller', trusted: true, url: found.sourceUrl, exact: found.exact, lookup: 'found', message: found.message }
             sources.push('Hersteller-Website')
           } else ingredients = { ...ingredients, lookup: 'not-found', message: found.message }
         }

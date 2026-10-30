@@ -30,8 +30,10 @@ function IngredientNotice({ info }: { info: IngredientInfo }) {
       </p>
     )
   return (
-    <p className="notice-box">
-      {SOURCE_LABEL[info.source]}
+    <p className={info.exact === false ? 'notice-box warn' : 'notice-box'}>
+      {info.exact === false
+        ? '⚠️ Zutaten eines sehr ähnlichen Produkts (Gluten-Zutaten gleich, Rest kann abweichen) – bitte mit der Packung vergleichen.'
+        : SOURCE_LABEL[info.source]}
       {info.url && (
         <>
           {' · '}
@@ -88,7 +90,7 @@ export function ProductEditor({
     if (!found) setIngredients({ ...ingredients, lookup: 'unavailable', message: 'Die Suche ist gerade nicht erreichbar.' })
     else if (found.found && found.ingredients) {
       setInput(applyManufacturer(input, found))
-      setIngredients({ source: 'hersteller', trusted: true, url: found.sourceUrl, lookup: 'found', message: found.message })
+      setIngredients({ source: 'hersteller', trusted: true, url: found.sourceUrl, exact: found.exact, lookup: 'found', message: found.message })
     } else setIngredients({ ...ingredients, lookup: 'not-found', message: found.message })
     setLooking(false)
   }
