@@ -61,11 +61,22 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
     setDate(mail.date ?? today())
     setPositive(mail.verdict !== 'no')
     setNote(
-      [mail.quote && `„${mail.quote}“`, `E-Mail${mail.subject ? ` „${mail.subject}“` : ''}${mail.fromName ? ` von ${mail.fromName}` : ''}`]
+      [mail.quote && `„${mail.quote}“`, `E-Mail${mail.subject ? ` „${mail.subject}“` : ''}${mail.fromName ?? mail.contactName ? ` von ${mail.fromName ?? mail.contactName}` : ''}`]
         .filter(Boolean)
         .join(' – '),
     )
-    setContact([mail.fromName, mail.fromEmail && `<${mail.fromEmail}>`].filter(Boolean).join(' '))
+    const who = mail.fromName ?? mail.contactName
+    const email = mail.fromEmail ?? mail.contactEmail
+    setContact(
+      [
+        who && (mail.contactRole && who === mail.contactName ? `${who} (${mail.contactRole})` : who),
+        email,
+        mail.phone && `Tel. ${mail.phone}`,
+        mail.website,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    )
     try {
       const list = await findCandidates(mail)
       setCandidates(list)

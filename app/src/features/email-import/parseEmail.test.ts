@@ -67,4 +67,48 @@ Unsere Dinkelnudeln enthalten Gluten, da Dinkel ein glutenhaltiges Getreide ist.
     expect(parseDate('Montag, 12. März 2026 10:15')).toBe('2026-03-12')
     expect(parseDate('Tue, 3 Nov 2026 09:00:00 +0100')).toBe('2026-11-03')
   })
+
+  it('Antwort ohne Kopfzeilen: Hersteller, Kontakt und Produkt aus Text und Signatur', () => {
+    const r = parseEmail(`Sehr geehrter Valentin,
+
+vielen Dank für Ihre Anfrage.
+
+Gerne teilen wir Ihnen mit, dass das Wan Kwai Ketjap Manis ohne den Zusatz glutenhaltiger Zutaten hergestellt wird.
+
+Wir hoffen, Ihnen mit dieser Information weitergeholfen zu haben.
+
+Mit freundlichen Grüßen,
+
+Christian Mayerhofer
+
+Qualitätsmanagement
+
+------------------------------------------------------------------------------------------
+
+Importhaus Wilms / Impuls GmbH &  Co. KG, Am Klingenweg 6A Kubus II, 65396 Walluf
+
+Office Dachau: Felix-Wankel-Straße 12a, 85221 Dachau
+
+mailto: Christian.Mayerhofer@importhaus-wilms.de
+
+Webseite: [www.importhaus-wilms.de](https://www.importhaus-wilms.de)
+
+LinkedIn: [www.linkedin.com/company/importhaus-wilms/](https://www.linkedin.com/company/importhaus-wilms/)
+`)
+    expect(r.manufacturer).toBe('Importhaus Wilms / Impuls GmbH & Co. KG')
+    expect(r.contactName).toBe('Christian Mayerhofer')
+    expect(r.contactRole).toBe('Qualitätsmanagement')
+    expect(r.contactEmail).toBe('Christian.Mayerhofer@importhaus-wilms.de')
+    expect(r.website).toBe('www.importhaus-wilms.de')
+    expect(r.product).toBe('Wan Kwai Ketjap Manis')
+    expect(r.verdict).toBe('yes')
+  })
+
+  it('Domain als Notlösung für den Hersteller, Produkt aus „Anfrage zu …“', () => {
+    const r = parseEmail('Vielen Dank für Ihre Anfrage zu Bio Reiswaffeln Natur.\n\nDie Waffeln sind glutenfrei.\n\nViele Grüße\nAnna Beispiel\nanna@reis-werk.de\nTel.: +49 89 123456')
+    expect(r.product).toBe('Bio Reiswaffeln Natur')
+    expect(r.manufacturer).toBe('Reis Werk')
+    expect(r.phone).toBe('+49 89 123456')
+    expect(r.contactName).toBe('Anna Beispiel')
+  })
 })
