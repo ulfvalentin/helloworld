@@ -1,10 +1,48 @@
 import { useMemo, useState } from 'react'
 import { classify } from '../lib/classify'
+import { applyManufacturer, lookupManufacturer } from '../lib/manufacturer'
 import { repository } from '../lib/repository'
-import type { Product, ProductInput } from '../types'
+import type { Draft, IngredientInfo, Product, ProductInput } from '../types'
+import { IngredientList } from './IngredientList'
 import { Reasons } from './ProductDetail'
-import type { Draft } from './Scanner'
 import { StatusBadge } from './StatusBadge'
+
+const SOURCE_LABEL = {
+  foto: 'Vom Foto gelesen',
+  datenbank: 'Aus eurer Datenbank',
+  openfoodfacts: 'Aus Open Food Facts',
+  hersteller: 'Von der Hersteller-Website',
+} as const
+
+function IngredientNotice({ info }: { info: IngredientInfo }) {
+  if (info.source === null)
+    return (
+      <p className="notice-box warn">
+        Keine Zutaten gefunden. Fotografiere die Zutatenliste einzeln, aus der Nähe und gerade – dann wird sie
+        deutlich besser gelesen.
+      </p>
+    )
+  if (!info.trusted)
+    return (
+      <p className="notice-box warn">
+        ⚠️ Das Foto war schwer lesbar, die Zutaten sind unsicher. Bitte prüfen, die Zutatenliste einzeln aus der
+        Nähe fotografieren oder auf der Hersteller-Website nachsehen.
+      </p>
+    )
+  return (
+    <p className="notice-box">
+      {SOURCE_LABEL[info.source]}
+      {info.url && (
+        <>
+          {' · '}
+          <a href={info.url} target="_blank" rel="noopener noreferrer">
+            Seite öffnen
+          </a>
+        </>
+      )}
+    </p>
+  )
+}
 
 /** Ergebnis prüfen, korrigieren und in die gemeinsame Datenbank übernehmen. */
 export function ProductEditor({
@@ -17,6 +55,9 @@ export function ProductEditor({
   onCancel: () => void
 }) {
   const [input, setInput] = useState<ProductInput>(draft.input)
+  const [ingredients, setIngredients] = useState<IngredientInfo>(draft.ingredients)
+  const [editing, setEditing] = useState(false)
+  const [looking, setLooking] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const result = useMemo(
@@ -32,6 +73,25 @@ export function ProductEditor({
   )
   const set = <K extends keyof ProductInput>(key: K, value: ProductInput[K]) =>
     setInput((prev) => ({ ...prev, [key]: value }))
+
+  const canSearch = Boolean(input.name || input.barcode || draft.hints.length >= 3)
+
+  async function checkManufacturer() {
+    setLooking(true)
+    const found = await lookupManufacturer({
+      name: input.name,
+      brand: input.brand,
+      barcode: input.barcode,
+      urls: draft.websites,
+      hints: draft.hints,
+    })
+    if (!found) setIngredients({ ...ingredients, lookup: 'unavailable', message: 'Die Suche ist gerade nicht erreichbar.' })
+    else if (found.found && found.ingredients) {
+      setInput(applyManufacturer(input, found))
+      setIngredients({ source: 'hersteller', trusted: true, url: found.sourceUrl, lookup: 'found', message: found.message })
+    } else setIngredients({ ...ingredients, lookup: 'not-found', message: found.message })
+    setLooking(false)
+  }
 
   async function save() {
     setSaving(true)
@@ -56,7 +116,34 @@ export function ProductEditor({
       </div>
 
       <div className="card stack">
-        <h3>Angaben prüfen &amp; ergänzen</h3>
+        <h3>Zutaten</h3>
+        <IngredientNotice info={ingredients} />
+        {editing ? (
+          <textarea
+            rows={6}
+            value={input.ingredients_text ?? ''}
+            onChange={(e) => set('ingredients_text', e.target.value || null)}
+            aria-label="Zutaten"
+          />
+        ) : (
+          <IngredientList text={input.ingredients_text} />
+        )}
+        <div className="row">
+          <button type="button" onClick={() => setEditing(!editing)}>
+            {editing ? 'Fertig' : '✏️ Zutaten korrigieren'}
+          </button>
+          {ingredients.source !== 'hersteller' && (
+            <button type="button" onClick={checkManufacturer} disabled={looking || !canSearch}>
+              {looking ? 'Suche läuft …' : '🔎 Hersteller-Website prüfen'}
+            </button>
+          )}
+        </div>
+        {!canSearch && ingredients.source !== 'hersteller' && (
+          <p className="muted small">Für die Suche zuerst unten den Produktnamen eintragen.</p>
+        )}
+        {ingredients.message && ingredients.lookup !== 'found' && (
+          <p className="muted small">{ingredients.message}</p>
+        )}
         <label className="checkbox">
           <input
             type="checkbox"
@@ -77,6 +164,10 @@ export function ProductEditor({
             />
           </label>
         )}
+      </div>
+
+      <div className="card stack">
+        <h3>Produkt</h3>
         <div className="row">
           <label>
             Produkt
@@ -95,22 +186,18 @@ export function ProductEditor({
             onChange={(e) => set('barcode', e.target.value.replace(/\D/g, '') || null)}
           />
         </label>
-        <label>
-          Zutaten (inkl. „Kann Spuren von …“)
+        <details>
+          <summary>Erkannten Text vom Foto anzeigen</summary>
           <textarea
-            rows={5}
-            value={input.ingredients_text ?? ''}
-            onChange={(e) => set('ingredients_text', e.target.value || null)}
-          />
-        </label>
-        <label>
-          Weiterer Verpackungstext (erkannt)
-          <textarea
-            rows={3}
+            rows={6}
             value={input.label_text ?? ''}
             onChange={(e) => set('label_text', e.target.value || null)}
+            aria-label="Erkannter Text"
           />
-        </label>
+          <p className="muted small">
+            Wird zusätzlich auf Gluten durchsucht, auch wenn er in der Zutatenliste oben nicht auftaucht.
+          </p>
+        </details>
         {input.external_tags.length > 0 && (
           <p className="muted small">Open Food Facts: {input.external_tags.join(', ')}</p>
         )}

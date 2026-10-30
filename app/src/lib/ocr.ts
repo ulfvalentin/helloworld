@@ -1,4 +1,5 @@
 import { createWorker, type Worker } from 'tesseract.js'
+import type { OcrLine } from './textClean'
 
 let workerPromise: Promise<Worker> | null = null
 let progressListener: ((p: number) => void) | null = null
@@ -40,21 +41,34 @@ export function readabilityScore(text: string, confidence: number): number {
 // Ein Ergebnis mit Zutatenliste und genug Wörtern gilt als richtig herum.
 const GOOD_ENOUGH = 25
 
+export interface OcrResult {
+  text: string
+  /** Zeilen mit Sicherheit pro Wort – Grundlage fürs Aufräumen */
+  lines: OcrLine[]
+}
+
 /**
  * Liest den Text auf einem Foto (Deutsch + Englisch), komplett im Browser.
  * Seitlich oder kopfüber fotografierte Packungen werden automatisch gedreht.
  */
-export async function recognizeText(image: Blob, onProgress?: (p: number) => void): Promise<string> {
+export async function recognizeText(image: Blob, onProgress?: (p: number) => void): Promise<OcrResult> {
   const worker = await getWorker()
   const bitmap = await createImageBitmap(image)
   const angles = [0, 90, 270, 180] as const
-  let best = { text: '', score: -1 }
+  let best: OcrResult & { score: number } = { text: '', lines: [], score: -1 }
   try {
     for (const [i, angle] of angles.entries()) {
       progressListener = onProgress ? (p) => onProgress((i + p) / angles.length) : null
-      const { data } = await worker.recognize(drawRotated(bitmap, angle))
+      const { data } = await worker.recognize(drawRotated(bitmap, angle), {}, { text: true, blocks: true })
       const score = readabilityScore(data.text, data.confidence)
-      if (score > best.score) best = { text: data.text, score }
+      if (score > best.score) {
+        const lines = (data.blocks ?? []).flatMap((b) =>
+          b.paragraphs.flatMap((p) =>
+            p.lines.map((l) => ({ words: l.words.map((w) => ({ text: w.text, confidence: w.confidence })) })),
+          ),
+        )
+        best = { text: data.text, lines, score }
+      }
       if (/zutaten|ingredients/i.test(data.text) && score >= GOOD_ENOUGH) break
     }
   } finally {
@@ -62,13 +76,6 @@ export async function recognizeText(image: Blob, onProgress?: (p: number) => voi
     bitmap.close()
   }
   onProgress?.(1)
-  return best.text
+  return { text: best.text, lines: best.lines }
 }
 
-/** Schneidet den Zutatenblock aus dem erkannten Text heraus, falls erkennbar. */
-export function extractIngredients(text: string): string | null {
-  const m = text.match(
-    /(zutaten|ingredients|ingr[ée]dients)\s*[:.]?\s*([\s\S]*?)(?=n[äa]hrwert|durchschnittliche|nutrition|mindestens haltbar|zu verbrauchen|aufbewahrung|$)/i,
-  )
-  return m ? m[2].trim() : null
-}

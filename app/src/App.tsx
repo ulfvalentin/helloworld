@@ -5,10 +5,10 @@ import { LogoHorizontal, LogoStacked } from './components/Logo'
 import { ProductDetail } from './components/ProductDetail'
 import { ProductEditor } from './components/ProductEditor'
 import { ProductList } from './components/ProductList'
-import { type Draft, Scanner, stripProduct } from './components/Scanner'
+import { Scanner, stripProduct } from './components/Scanner'
 import { repository } from './lib/repository'
 import { supabase } from './lib/supabase'
-import type { Product } from './types'
+import type { Draft, Product } from './types'
 
 type View =
   | { kind: 'scan' }
@@ -78,6 +78,9 @@ export default function App() {
                   existing: view.product,
                   ocrText: null,
                   sources: ['Eigene Datenbank'],
+                  ingredients: { source: 'datenbank', trusted: true, url: null, lookup: 'skipped', message: null },
+                  websites: [],
+                  hints: [],
                 },
               })
             }

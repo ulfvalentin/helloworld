@@ -5,6 +5,8 @@ export interface ExternalProduct {
   brand: string | null
   ingredientsText: string | null
   imageUrl: string | null
+  /** Produktseite des Herstellers, falls in Open Food Facts hinterlegt */
+  link: string | null
   /** Mit Präfix: "labels:en:gluten-free", "allergens:en:gluten", "traces:en:gluten" */
   tags: string[]
 }
@@ -12,6 +14,9 @@ export interface ExternalProduct {
 const FIELDS = [
   'product_name_de',
   'product_name',
+  'generic_name_de',
+  'generic_name',
+  'link',
   'brands',
   'ingredients_text_de',
   'ingredients_text',
@@ -35,10 +40,11 @@ export async function lookupOpenFoodFacts(barcode: string): Promise<ExternalProd
   return {
     source: 'openfoodfacts',
     barcode,
-    name: p.product_name_de || p.product_name || null,
+    name: p.product_name_de || p.product_name || p.generic_name_de || p.generic_name || null,
     brand: p.brands || null,
     ingredientsText: p.ingredients_text_de || p.ingredients_text || null,
     imageUrl: p.image_front_small_url || null,
+    link: typeof p.link === 'string' && /^https?:\/\//.test(p.link) ? p.link : null,
     tags: [
       ...prefixed('labels', p.labels_tags),
       ...prefixed('allergens', p.allergens_tags),
