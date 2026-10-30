@@ -151,3 +151,27 @@ describe('classify', () => {
     expect(r.reasons.join()).toMatch(/Logo/)
   })
 })
+
+describe('Beispielfotos (echte Texterkennung)', () => {
+  it('Reisnudeln mit vermischten Spalten → keine Glutenzutaten', () => {
+    // OCR-Ausgabe des Rückseitenfotos von Bamboo Garden Pad Thai Reisnudeln
+    const ocr = `Pan Ta Reis NUDELN \\ gitionelles Pad Thai und viele wi at) N
+Für traditio
+Zutaten:
+Zubereitu"?' in Wasser Reismehl (91%), Tapiokamap,
+A Reisnudeln M0 ren Speisesalz.
+kochen, 997 Wasser Durchschnittliche dt Beemer
+Probieren Sie auch die So aka Trocken, wärme- und Glasnudeln und weitere lichtgeschützt lagern,`
+    const r = classify({ ingredientsText: 'Zubereitu in Wasser Reismehl (91%), Tapiokamap, Speisesalz.', labelText: ocr, now })
+    expect(r.status).toBe('no_gluten_detected')
+  })
+
+  it('Gluten außerhalb des erkannten Zutatenblocks wird trotzdem gefunden', () => {
+    const r = classify({
+      ingredientsText: 'Zucker, Kakao',
+      labelText: 'Zutaten: Zucker, Kakao Zubereitung: rühren Weizenmehl, Salz',
+      now,
+    })
+    expect(r.status).toBe('contains_gluten')
+  })
+})
