@@ -32,7 +32,7 @@ function IngredientNotice({ info }: { info: IngredientInfo }) {
   return (
     <p className={info.exact === false ? 'notice-box warn' : 'notice-box'}>
       {info.exact === false
-        ? '⚠️ Zutaten eines sehr ähnlichen Produkts (Gluten-Zutaten gleich, Rest kann abweichen) – bitte mit der Packung vergleichen.'
+        ? '⚠️ Zutaten eines passenden Produkts von der Hersteller-Website, aber nicht eindeutig dasselbe – bitte mit der Packung vergleichen.'
         : SOURCE_LABEL[info.source]}
       {info.url && (
         <>

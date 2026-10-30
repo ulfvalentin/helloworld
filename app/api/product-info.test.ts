@@ -5,6 +5,7 @@ import {
   extractGlutenStatements,
   extractIngredients,
   findProductInfo,
+  isIdentified,
   isPrivateAddress,
   nameTokens,
   parsePage,
@@ -103,7 +104,15 @@ describe('Relevanz', () => {
     const right = page('Oat drink', 'Wasser, HAFER 10%, Rapsöl, Säureregulator (Dikaliumphosphat), Salz')
     const wrong = page('Oat drink choco', 'Wasser, Hafer, Zucker, Kakao')
     expect(relevance(right, q)).toBeGreaterThanOrEqual(2)
-    expect(relevance(wrong, q)).toBeLessThan(2.5)
+    expect(relevance(wrong, q)).toBeLessThan(2)
+  })
+
+  it('ein ähnliches Produkt, dem ein Zutatenwort fehlt, wird nicht übernommen (Hafercreme statt Haferdrink)', () => {
+    const q2 = { brand: 'Oatly', urls: [], hints: ['Wasser', 'Hafer', 'Rapsöl', 'Säureregulator', 'Dikaliumphosphat'] }
+    // echte Zutaten der Oatly Hafercreme: vier von fünf Wörtern passen, „Dikaliumphosphat“ fehlt
+    const cream = page('Creamy Oat', 'Wasser, Rapsöl*, HAFER* 9%, Emulgator (Lecithine*), Säureregulator (Calciumcarbonat), Meersalz.')
+    expect(relevance(cream, q2)).toBeLessThan(2)
+    expect(pickBest([cream], q2).hit).toBeNull()
   })
 })
 
@@ -134,7 +143,7 @@ describe('pickBest', () => {
     const r = pickBest([page('a', 'Wasser, Hafer 10%, Rapsöl, Säureregulator (Dikaliumphosphat)'), page('b', 'Wasser, Hafer, Zucker')], q)
     expect(r.hit?.page.url).toBe('a')
     expect(r.ambiguous).toBe(false)
-    expect(r.exact).toBe(true)
+    expect(r.exact).toBe(false) // nur Zutatenwörter: ähnlich, aber nicht nachweislich dasselbe Produkt
   })
 
   it('verweigert bei gleich guten Treffern, die sich bei glutenrelevanten Zutaten unterscheiden', () => {
@@ -164,6 +173,13 @@ describe('pickBest', () => {
   it('doppelte Seiten mit gleicher Zutatenliste sind nicht mehrdeutig', () => {
     const list = 'Wasser, Hafer 10%, Rapsöl, Säureregulator (Dikaliumphosphat)'
     expect(pickBest([page('a', list), page('b', list)], q).hit).not.toBeNull()
+  })
+
+  it('exakt nur bei Barcode- oder Namenstreffer', () => {
+    const p = page('a', 'Wasser, Hafer 10%, Rapsöl, Säureregulator (Dikaliumphosphat)')
+    expect(pickBest([p], { ...q, name: 'Oat drink' }).exact).toBe(true)
+    expect(pickBest([p], { ...q, name: 'Hafercreme' }).exact).toBe(false)
+    expect(isIdentified({ ...p, text: 'EAN 7394376623042' }, { ...q, barcode: '7394376623042' })).toBe(true)
   })
 
   it('ein Barcode-Treffer setzt sich gegen ähnliche Seiten durch', () => {
