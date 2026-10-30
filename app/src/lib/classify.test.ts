@@ -50,12 +50,12 @@ describe('findTraceStatements', () => {
 })
 
 describe('classify', () => {
-  it('Zertifizierungslogo → geprüft glutenfrei', () => {
+  it('Zertifizierungslogo → sicher glutenfrei', () => {
     const r = classify({ ingredientsText: 'Maismehl, Salz', certifiedLabel: true, now })
     expect(r.status).toBe('verified_gluten_free')
   })
 
-  it('Herstellerbestätigung jünger als 6 Monate → geprüft glutenfrei', () => {
+  it('Herstellerbestätigung jünger als 6 Monate → sicher glutenfrei', () => {
     const r = classify({
       ingredientsText: 'Reis',
       confirmations: [{ confirmed_at: '2026-06-01', confirms_gluten_free: true }],
@@ -84,7 +84,7 @@ describe('classify', () => {
     expect(r.status).toBe('verified_gluten_free')
   })
 
-  it('Hersteller verneint → nicht geprüft glutenfrei', () => {
+  it('Hersteller verneint → nicht sicher glutenfrei', () => {
     const r = classify({
       ingredientsText: 'Reis. Glutenfrei.',
       confirmations: [
@@ -96,12 +96,12 @@ describe('classify', () => {
     expect(r.status).toBe('may_contain_gluten')
   })
 
-  it('"glutenfrei" ohne Logo → ungeprüft glutenfrei', () => {
+  it('"glutenfrei" ohne Logo → keine glutenhaltigen Zutaten', () => {
     const r = classify({ ingredientsText: 'Reismehl, Maisstärke', labelText: 'Glutenfrei!', now })
     expect(r.status).toBe('unverified_gluten_free')
   })
 
-  it('Spuren anderer Allergene, aber nicht Gluten → ungeprüft glutenfrei', () => {
+  it('Spuren anderer Allergene, aber nicht Gluten → keine glutenhaltigen Zutaten', () => {
     const r = classify({
       ingredientsText: 'Zutaten: Kartoffeln, Sonnenblumenöl, Salz. Kann Spuren von Sellerie enthalten.',
       now,
@@ -127,8 +127,27 @@ describe('classify', () => {
     expect(classify({ ingredientsText: 'Haferflocken', now }).status).toBe('contains_gluten')
   })
 
-  it('keine Glutenzutaten, aber auch keine Angabe → nicht eingestuft', () => {
-    expect(classify({ ingredientsText: 'Tomaten, Salz', now }).status).toBe('no_gluten_detected')
+  it('Zutaten ohne Gluten, auch ohne „glutenfrei“-Angabe → keine glutenhaltigen Zutaten', () => {
+    const r = classify({ ingredientsText: 'Tomaten, Salz', now })
+    expect(r.status).toBe('unverified_gluten_free')
+    expect(r.reasons.join(' ')).toMatch(/Kreuzkontamination/)
+  })
+
+  it('unsicher gelesene Zutatenliste → unbekannt statt „keine glutenhaltigen Zutaten“', () => {
+    const r = classify({ ingredientsText: 'Wasser Reismehl (91%)', ingredientsReliable: false, now })
+    expect(r.status).toBe('unknown')
+    expect(r.reasons.join(' ')).toMatch(/unsicher/)
+  })
+
+  it('unsichere Liste verdeckt trotzdem keine gefundenen Gluten-Wörter', () => {
+    expect(classify({ ingredientsText: 'Weizenmehl', ingredientsReliable: false, now }).status).toBe('contains_gluten')
+    expect(
+      classify({ ingredientsText: 'Reis', labelText: 'Kann Spuren von Weizen enthalten.', ingredientsReliable: false, now }).status,
+    ).toBe('may_contain_gluten')
+  })
+
+  it('Zertifizierung bleibt „sicher“, auch wenn die Zutatenliste unsicher gelesen wurde', () => {
+    expect(classify({ ingredientsText: 'Reis', certifiedLabel: true, ingredientsReliable: false, now }).status).toBe('verified_gluten_free')
   })
 
   it('ohne Text → unbekannt', () => {
@@ -153,7 +172,7 @@ describe('classify', () => {
 })
 
 describe('Beispielfotos (echte Texterkennung)', () => {
-  it('Reisnudeln mit vermischten Spalten → keine Glutenzutaten', () => {
+  it('Reisnudeln mit vermischten Spalten → keine glutenhaltigen Zutaten', () => {
     // OCR-Ausgabe des Rückseitenfotos von Bamboo Garden Pad Thai Reisnudeln
     const ocr = `Pan Ta Reis NUDELN \\ gitionelles Pad Thai und viele wi at) N
 Für traditio
@@ -163,7 +182,7 @@ A Reisnudeln M0 ren Speisesalz.
 kochen, 997 Wasser Durchschnittliche dt Beemer
 Probieren Sie auch die So aka Trocken, wärme- und Glasnudeln und weitere lichtgeschützt lagern,`
     const r = classify({ ingredientsText: 'Zubereitu in Wasser Reismehl (91%), Tapiokamap, Speisesalz.', labelText: ocr, now })
-    expect(r.status).toBe('no_gluten_detected')
+    expect(r.status).toBe('unverified_gluten_free')
   })
 
   it('Gluten außerhalb des erkannten Zutatenblocks wird trotzdem gefunden', () => {

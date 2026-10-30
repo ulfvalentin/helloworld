@@ -14,20 +14,43 @@ const SOURCE_LABEL = {
   hersteller: 'Von der Hersteller-Website',
 } as const
 
-function IngredientNotice({ info }: { info: IngredientInfo }) {
+function Bullets({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="notice-box warn">
+      <p>
+        <strong>{title}</strong>
+      </p>
+      <ul>
+        {items.map((i) => (
+          <li key={i}>{i}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function IngredientNotice({ info, edited }: { info: IngredientInfo; edited: boolean }) {
+  if (edited) return <p className="notice-box">Von dir korrigiert</p>
   if (info.source === null)
     return (
-      <p className="notice-box warn">
-        Keine Zutaten gefunden. Fotografiere die Zutatenliste einzeln, aus der Nähe und gerade – dann wird sie
-        deutlich besser gelesen.
-      </p>
+      <Bullets
+        title="Keine Zutaten gefunden."
+        items={[
+          'Zutatenliste einzeln, aus der Nähe und gerade fotografieren',
+          'oder die Zutaten selbst eintragen („Zutaten korrigieren“)',
+        ]}
+      />
     )
   if (!info.trusted)
     return (
-      <p className="notice-box warn">
-        ⚠️ Das Foto war schwer lesbar, die Zutaten sind unsicher. Bitte prüfen, die Zutatenliste einzeln aus der
-        Nähe fotografieren oder auf der Hersteller-Website nachsehen.
-      </p>
+      <Bullets
+        title="Das Foto war schwer lesbar – die Zutaten sind unsicher."
+        items={[
+          'Zutatenliste einzeln und aus der Nähe fotografieren',
+          'oder Produktnamen eintragen und „Hersteller-Website prüfen“ tippen',
+          'oder die Zutaten selbst korrigieren',
+        ]}
+      />
     )
   return (
     <p className={info.exact === false ? 'notice-box warn' : 'notice-box'}>
@@ -59,9 +82,12 @@ export function ProductEditor({
   const [input, setInput] = useState<ProductInput>(draft.input)
   const [ingredients, setIngredients] = useState<IngredientInfo>(draft.ingredients)
   const [editing, setEditing] = useState(false)
+  // Hat der Nutzer die Zutaten selbst eingegeben/korrigiert, gelten sie als geprüft
+  const [edited, setEdited] = useState(false)
   const [looking, setLooking] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const reliable = ingredients.trusted || edited
   const result = useMemo(
     () =>
       classify({
@@ -70,8 +96,9 @@ export function ProductEditor({
         certifiedLabel: input.certified_label,
         externalTags: input.external_tags,
         confirmations: draft.existing?.confirmations,
+        ingredientsReliable: reliable,
       }),
-    [input, draft.existing],
+    [input, draft.existing, reliable],
   )
   const set = <K extends keyof ProductInput>(key: K, value: ProductInput[K]) =>
     setInput((prev) => ({ ...prev, [key]: value }))
@@ -90,6 +117,7 @@ export function ProductEditor({
     if (!found) setIngredients({ ...ingredients, lookup: 'unavailable', message: 'Die Suche ist gerade nicht erreichbar.' })
     else if (found.found && found.ingredients) {
       setInput(applyManufacturer(input, found))
+      setEdited(false)
       setIngredients({ source: 'hersteller', trusted: true, url: found.sourceUrl, exact: found.exact, lookup: 'found', message: found.message })
     } else setIngredients({ ...ingredients, lookup: 'not-found', message: found.message })
     setLooking(false)
@@ -99,7 +127,10 @@ export function ProductEditor({
     setSaving(true)
     setError(null)
     try {
-      const product = await repository.saveProduct(input, draft.existing?.id)
+      // Eine unsicher gelesene, nicht korrigierte Liste nicht speichern: Sie würde später ohne den Warnhinweis
+      // als „Keine glutenhaltigen Zutaten“ erscheinen. Der Rohtext (label_text) bleibt und wird auf Gluten durchsucht.
+      const toSave = reliable ? input : { ...input, ingredients_text: null }
+      const product = await repository.saveProduct(toSave, draft.existing?.id)
       await repository.recordScan(product.id, draft.ocrText)
       onSaved(product)
     } catch (e) {
@@ -119,12 +150,15 @@ export function ProductEditor({
 
       <div className="card stack">
         <h3>Zutaten</h3>
-        <IngredientNotice info={ingredients} />
+        <IngredientNotice info={ingredients} edited={edited} />
         {editing ? (
           <textarea
             rows={6}
             value={input.ingredients_text ?? ''}
-            onChange={(e) => set('ingredients_text', e.target.value || null)}
+            onChange={(e) => {
+              set('ingredients_text', e.target.value || null)
+              setEdited(true)
+            }}
             aria-label="Zutaten"
           />
         ) : (

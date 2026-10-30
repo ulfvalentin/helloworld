@@ -16,6 +16,11 @@ export interface ClassificationInput {
    */
   externalTags?: string[]
   confirmations?: { confirmed_at: string; confirms_gluten_free: boolean }[]
+  /**
+   * false: Die Zutatenliste wurde unsicher gelesen. „Keine glutenhaltigen Zutaten“ ist dann nicht
+   * belastbar und wird zu „Unbekannt“. Gefundene Gluten-Wörter und Spurenhinweise zählen weiterhin.
+   */
+  ingredientsReliable?: boolean
   now?: Date
 }
 
@@ -178,7 +183,7 @@ export function classify(input: ClassificationInput): Classification {
     glutenSources.push('Gluten (laut Open Food Facts)')
   }
 
-  // 1) Geprüft glutenfrei
+  // 1) Sicher glutenfrei lt. Hersteller (Logo oder Herstellerbestätigung)
   if (!manufacturerDenied && (certified || confirmationValid)) {
     if (certified) {
       reasons.push(
@@ -227,25 +232,23 @@ export function classify(input: ClassificationInput): Classification {
     return { status: 'may_contain_gluten', reasons, glutenSources, traces, confirmationValidUntil }
   }
 
-  // 4) Ungeprüft glutenfrei
+  // 4) Keine glutenhaltigen Zutaten (auch wenn „glutenfrei“ draufsteht, aber ohne Logo/Bestätigung)
   const claim =
     GLUTEN_FREE_CLAIM.test(text) || tags.some((t) => /^labels:.*(gluten-free|no-gluten)/.test(t))
-  if (claim || traces.length) {
-    if (claim) reasons.push('„Glutenfrei“ steht auf der Verpackung, bei der Datenbank oder Hersteller-Website – aber ohne Zertifizierungslogo.')
-    if (traces.length)
-      reasons.push(`Spurenhinweis ohne Gluten: „${traces.join('; ')}“.`)
+  if (ingredients || claim || traces.length) {
+    if (input.ingredientsReliable === false) {
+      reasons.push('Die Zutatenliste wurde unsicher gelesen – bitte prüfen oder korrigieren, bevor du dich darauf verlässt.')
+      return { status: 'unknown', reasons, glutenSources, traces, confirmationValidUntil }
+    }
+    reasons.push('Keine glutenhaltigen Zutaten gefunden.')
+    if (claim)
+      reasons.push('„Glutenfrei“ steht auf der Verpackung, bei der Datenbank oder Hersteller-Website – aber ohne Zertifizierungslogo.')
+    if (traces.length) reasons.push(`Spurenhinweis ohne Gluten: „${traces.join('; ')}“.`)
+    reasons.push('Kreuzkontamination (Spuren) ist nicht ausgeschlossen.')
     reasons.push(
-      'Für „geprüft“: Hersteller anfragen (gilt 6 Monate) oder Zertifizierungslogo bestätigen.',
+      'Für „Sicher glutenfrei“: Hersteller anfragen (gilt 6 Monate) oder Zertifizierungslogo bestätigen.',
     )
     return { status: 'unverified_gluten_free', reasons, glutenSources, traces, confirmationValidUntil }
-  }
-
-  // 5) Keine Hinweise
-  if (ingredients) {
-    reasons.push(
-      'Keine glutenhaltigen Zutaten erkannt, aber weder „glutenfrei“-Angabe noch Spurenhinweis – nicht eingestuft.',
-    )
-    return { status: 'no_gluten_detected', reasons, glutenSources, traces, confirmationValidUntil }
   }
 
   reasons.push('Zu wenig Informationen. Bitte die Zutatenliste fotografieren.')
@@ -253,9 +256,8 @@ export function classify(input: ClassificationInput): Classification {
 }
 
 export const STATUS_META: Record<GlutenStatus, { label: string; short: string; tone: string }> = {
-  verified_gluten_free: { label: 'Geprüft glutenfrei', short: 'Geprüft', tone: 'green' },
-  unverified_gluten_free: { label: 'Ungeprüft glutenfrei', short: 'Ungeprüft', tone: 'lime' },
-  no_gluten_detected: { label: 'Keine Glutenzutaten erkannt', short: 'Unklar', tone: 'grey' },
+  verified_gluten_free: { label: 'Sicher glutenfrei lt. Hersteller', short: 'Sicher', tone: 'green' },
+  unverified_gluten_free: { label: 'Keine glutenhaltigen Zutaten', short: 'Keine Gluten-Zutat', tone: 'lime' },
   may_contain_gluten: { label: 'Kann Spuren von Gluten enthalten', short: 'Spuren', tone: 'orange' },
   contains_gluten: { label: 'Enthält Gluten', short: 'Gluten', tone: 'red' },
   unknown: { label: 'Unbekannt', short: '?', tone: 'grey' },

@@ -15,7 +15,7 @@ export const MIN_WORD_CONFIDENCE = 70
 /** Untergrenze, um das Ende des Zutatenblocks (Nährwerttabelle …) auch in unsicheren Zeilen zu erkennen. */
 export const LENIENT_WORD_CONFIDENCE = 45
 /** Anteil sicher gelesener Wörter im Zutatenblock, ab dem dem Foto vertraut wird. */
-export const TRUSTED_QUALITY = 0.75
+export const TRUSTED_QUALITY = 0.9
 
 const HEADING = /\b(zutaten|ingredients|ingr[ée]dients)\b/i
 // Ende der Zutatenliste. Die Erkennung verschreibt sich oft („Durchschaittliche“), deshalb auch Wortanfänge
