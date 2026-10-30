@@ -71,6 +71,14 @@ describe('extractIngredientBlock', () => {
     expect(b.hints).toEqual(['Reismehl', 'Tapiokamehl', 'Speisesalz'])
   })
 
+  it('verlorene Wörter machen die Liste unsicher: 2 von 8 Wörtern unsicher → nicht vertrauenswürdig', () => {
+    const b = extractIngredientBlock([
+      'Zutaten:(95)', 'Reismehl(40) (91%),(90) Tapiokamehl,(35)', 'Speisesalz(92) und(95) Wasser,(94) Zucker(93)',
+    ].map(L))!
+    expect(b.quality).toBeCloseTo(0.75)
+    expect(b.trusted).toBe(false)
+  })
+
   it('liefert null ohne Zutatenüberschrift', () => {
     expect(extractIngredientBlock([L('Nährwerte(90) je(95) 100g(92)')])).toBeNull()
   })

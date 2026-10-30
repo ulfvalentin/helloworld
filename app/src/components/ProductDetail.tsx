@@ -46,7 +46,7 @@ export function ProductDetail({
         <h3>Herstellerbestätigungen</h3>
         <p className="muted small">
           Eine Bestätigung des Herstellers macht ein Produkt für {CONFIRMATION_VALID_MONTHS} Monate zu
-          „geprüft glutenfrei“.
+          „Sicher glutenfrei lt. Hersteller“.
           {validUntil && ` Letzte positive Bestätigung gilt bis ${validUntil}.`}
         </p>
         {product.confirmations.length === 0 ? (

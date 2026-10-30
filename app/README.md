@@ -2,23 +2,24 @@
 
 Web-App (läuft im Handy-Browser), um schnell zu erkennen, ob ein Lebensmittel Gluten enthält.
 Foto aufnehmen → Text und Barcode erkennen → Abgleich mit eigener Supabase-Datenbank und
-Open Food Facts → Einstufung nach unseren Regeln. Jedes geprüfte Produkt landet in der
+Open Food Facts → Einstufung nach unseren Regeln. Jedes eingescannte Produkt landet in der
 gemeinsamen Datenbank, die so mit der Zeit wächst.
 
 ## Einstufung
 
 | Status | Wann |
 | --- | --- |
-| **Geprüft glutenfrei** | Zertifizierungslogo (durchgestrichene Ähre) auf der Packung **oder** Hersteller hat auf Nachfrage bestätigt und die Antwort ist höchstens 6 Monate alt |
-| **Ungeprüft glutenfrei** | „glutenfrei“ steht drauf, aber ohne Logo **oder** Spurenhinweis nennt andere Allergene, aber kein Gluten |
+| **Sicher glutenfrei lt. Hersteller** | Zertifizierungslogo (durchgestrichene Ähre) auf der Packung **oder** Hersteller hat auf Nachfrage bestätigt und die Antwort ist höchstens 6 Monate alt |
+| **Keine glutenhaltigen Zutaten** | Die Zutatenliste nennt kein Gluten (auch wenn „glutenfrei“ ohne Logo auf der Packung steht oder Spuren anderer Allergene genannt werden). Kreuzkontamination ist nicht ausgeschlossen. Nur bei verlässlich gelesener Zutatenliste, sonst „Unbekannt“ |
 | **Kann Spuren von Gluten enthalten** | Spurenhinweis nennt Weizen/Gerste/… oder Hersteller hat nicht bestätigt |
 | **Enthält Gluten** | glutenhaltige Zutat (Weizen, Roggen, Gerste, Hafer, Dinkel, Malz, …) |
-| **Keine Glutenzutaten erkannt** | Zutaten ohne Gluten, aber weder „glutenfrei“-Angabe noch Spurenhinweis |
+| **Unbekannt** | Zu wenig oder unsicher gelesene Informationen |
 
 Die Regeln stehen in `src/lib/classify.ts` (mit Tests in `classify.test.ts`), u. a.:
 Buchweizen ist glutenfrei, Glukosesirup/Maltodextrin aus Weizen gelten laut LMIV nicht als
 glutenhaltig, „glutenfreier Hafer“ und „ohne Weizen“ werden nicht als Gluten gewertet.
-Abgelaufene Herstellerbestätigungen stuft die App automatisch zurück.
+Abgelaufene Herstellerbestätigungen stuft die App automatisch zurück. Die Namen in der App wechseln hier,
+in der Datenbank (enum `gluten_status`) bleiben die ursprünglichen Schlüssel bestehen.
 
 Das Logo selbst kann die Texterkennung nicht lesen – deshalb bestätigt man es per Häkchen.
 Eine gefundene Lizenznummer (z. B. `DE-020-012`) löst einen Hinweis aus.
@@ -63,7 +64,7 @@ weil der Browser fremde Websites nicht lesen darf). Die Funktion probiert Webadr
 die Produktseite aus Open Food Facts und die vermutete Hersteller-Domain, folgt passenden Links und
 sucht notfalls im Web. Eine Seite zählt nur, wenn sie zum Produkt passt (Barcode, Produktname oder
 übereinstimmende Zutatenwörter vom Foto). Eine „glutenfrei“-Aussage dort ergibt nur
-„ungeprüft glutenfrei“ – „geprüft“ bleibt der Anfrage beim Hersteller oder dem Logo vorbehalten.
+„Keine glutenhaltigen Zutaten“ – „Sicher glutenfrei lt. Hersteller“ bleibt der Anfrage beim Hersteller oder dem Logo vorbehalten.
 
 Die Funktion ruft nur öffentliche http(s)-Adressen ab (keine internen Netze, begrenzte Größe und Zeit).
 Lokal (`npm run dev`) wird sie automatisch mit bereitgestellt.

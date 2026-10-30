@@ -67,7 +67,9 @@ button { font: inherit; border-radius: 10px; border: 1px solid var(--border); ba
 button.primary, .photo-button { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 button:disabled { opacity: 0.6; cursor: default; }
 button.link { background: none; border: none; color: var(--highlight-text); font-weight: 600; padding: 4px 0; align-self: flex-start; }
-.photo-button { display: block; text-align: center; padding: 18px; border-radius: 12px; font-size: 1.05rem; cursor: pointer; }
+.photo-buttons { display: flex; gap: 8px; }
+.photo-button { display: block; flex: 1 1 0; text-align: center; padding: 16px 4px; border-radius: 12px; font-size: 0.92rem; white-space: nowrap; cursor: pointer; }
+.photo-button.secondary { background: transparent; color: var(--text); border: 1.5px solid var(--accent); }
 .thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
 .thumbs figure { margin: 0; display: flex; flex-direction: column; align-items: center; }
 .thumbs img { width: 88px; height: 88px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
@@ -103,3 +105,19 @@ nav button.active { background: var(--accent); color: var(--on-accent); border-c
 .notice-box a { color: var(--highlight-text); font-weight: 600; }
 details summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
 details textarea { margin-top: 8px; }
+
+/* Schritt-für-Schritt-Anleitung */
+.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 28px 1fr; column-gap: 12px; align-items: center; }
+.steps li::before { content: counter(step); grid-row: span 2; align-self: start; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 0.9rem; background: var(--accent); color: var(--on-accent); }
+.steps li strong { grid-column: 2; }
+.steps li span { grid-column: 2; }
+.progress { margin: 0; font-weight: 600; color: var(--highlight-text); }
+.notice-box ul { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+nav button[aria-disabled='true'] { opacity: 0.55; }
+
+/* Konto-Menü */
+.account { position: relative; }
+.icon-button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; }
+.menu { position: absolute; right: 0; top: 50px; z-index: 10; min-width: 220px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); display: flex; flex-direction: column; gap: 6px; }
+.menu-email { margin: 0; padding: 4px 8px; font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }

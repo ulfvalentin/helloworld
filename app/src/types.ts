@@ -1,10 +1,11 @@
 export type GlutenStatus =
-  | 'verified_gluten_free' // geprüft glutenfrei
-  | 'unverified_gluten_free' // ungeprüft glutenfrei
+  // Die Schlüssel entsprechen den Werten der Datenbank (enum gluten_status) und bleiben bewusst
+  // stabil; die sichtbaren Namen stehen in STATUS_META (classify.ts).
+  | 'verified_gluten_free' // „Sicher glutenfrei lt. Hersteller“: Logo oder Herstellerbestätigung ≤ 6 Monate
+  | 'unverified_gluten_free' // „Keine glutenhaltigen Zutaten“: Zutaten ohne Gluten, Kreuzkontamination offen
   | 'may_contain_gluten' // kann Spuren von Gluten enthalten
   | 'contains_gluten' // enthält Gluten
-  | 'no_gluten_detected' // keine Glutenzutaten erkannt, aber nicht eingestuft
-  | 'unknown' // zu wenig Informationen
+  | 'unknown' // zu wenig oder unsichere Informationen
 
 export interface ManufacturerConfirmation {
   id: string

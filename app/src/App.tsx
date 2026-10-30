@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { AccountMenu } from './components/AccountMenu'
 import { Login } from './components/Login'
 import { LogoHorizontal, LogoStacked } from './components/Logo'
 import { ProductDetail } from './components/ProductDetail'
 import { ProductEditor } from './components/ProductEditor'
 import { ProductList } from './components/ProductList'
-import { Scanner, stripProduct } from './components/Scanner'
+import { Scanner } from './components/Scanner'
 import { repository } from './lib/repository'
 import { supabase } from './lib/supabase'
+import { stripProduct, useScanFlow } from './lib/useScanFlow'
 import type { Draft, Product } from './types'
 
 type View =
@@ -19,6 +21,7 @@ type View =
 export default function App() {
   const [view, setView] = useState<View>({ kind: 'scan' })
   const [session, setSession] = useState<Session | null | undefined>(supabase ? undefined : null)
+  const scan = useScanFlow((draft) => setView({ kind: 'draft', draft }))
 
   useEffect(() => {
     if (!supabase) return
@@ -37,9 +40,7 @@ export default function App() {
         <header>
           <LogoHorizontal />
           {supabase && session && (
-            <button className="link" onClick={() => supabase!.auth.signOut()}>
-              Abmelden
-            </button>
+            <AccountMenu email={session.user.email ?? null} onSignOut={() => supabase!.auth.signOut()} />
           )}
         </header>
       )}
@@ -56,7 +57,7 @@ export default function App() {
         ) : needsLogin ? (
           <Login />
         ) : view.kind === 'scan' ? (
-          <Scanner onDraft={(draft) => setView({ kind: 'draft', draft })} />
+          <Scanner scan={scan} />
         ) : view.kind === 'draft' ? (
           <ProductEditor
             draft={view.draft}
@@ -89,8 +90,13 @@ export default function App() {
       </main>
       {!needsLogin && (
         <nav>
-          <button className={tab === 'scan' ? 'active' : ''} onClick={() => setView({ kind: 'scan' })}>
-            📷 Prüfen
+          {/* In der Scan-Ansicht startet „Prüfen“ die Auswertung, sonst führt es zurück zum Scannen */}
+          <button
+            className={tab === 'scan' ? 'active' : ''}
+            aria-disabled={view.kind === 'scan' && !scan.canStart}
+            onClick={() => (view.kind === 'scan' ? scan.start() : setView({ kind: 'scan' }))}
+          >
+            {scan.busy ? 'Prüfe …' : 'Prüfen'}
           </button>
           <button className={tab === 'list' ? 'active' : ''} onClick={() => setView({ kind: 'list' })}>
             📚 Datenbank
