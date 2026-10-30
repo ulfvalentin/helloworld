@@ -168,8 +168,11 @@ export function classify(input: ClassificationInput): Classification {
   const certified = Boolean(input.certifiedLabel) || certifiedByTag
 
   // Spurenhinweise stehen oft mitten in der Zutatenliste – vor der Zutatensuche entfernen.
+  // Gesucht wird im gesamten Text: Die Texterkennung vermischt mehrspaltige Etiketten,
+  // sodass Zutaten außerhalb des erkannten Zutatenblocks landen können. Ein Fehlalarm
+  // ist bei Zöliakie harmloser als eine übersehene Glutenquelle.
   const { statements: traces, rest } = findTraceStatements(text)
-  const glutenSources = findGlutenSources(ingredients ? findTraceStatements(ingredients).rest : rest)
+  const glutenSources = findGlutenSources(rest)
   const glutenTraces = traces.filter((t) => findGlutenSources(t).length > 0)
   if (tags.includes('allergens:en:gluten') && !glutenSources.includes('Gluten')) {
     glutenSources.push('Gluten (laut Open Food Facts)')

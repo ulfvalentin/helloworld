@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { eanCandidatesFromText } from '../lib/ean'
 import { lookupOpenFoodFacts } from '../lib/openFoodFacts'
 import { repository } from '../lib/repository'
 import type { Product, ProductInput } from '../types'
@@ -60,13 +61,20 @@ export function Scanner({ onDraft }: { onDraft: (d: Draft) => void }) {
       const sources: string[] = []
       let existing: Product | null = null
       let external = null
-      if (code) {
+      // War der Strichcode nicht lesbar, die gedruckten Ziffern aus dem Text versuchen.
+      // Solche Kandidaten zählen nur, wenn eine Datenbank das Produkt kennt.
+      const fromText = !code && ocrText ? eanCandidatesFromText(ocrText).slice(0, 4) : []
+      for (const candidate of code ? [code] : fromText) {
         setStep('Gleiche mit Datenbanken ab …')
-        existing = await repository.getByBarcode(code)
-        if (existing) sources.push('Eigene Datenbank')
-        external = await lookupOpenFoodFacts(code).catch(() => null)
-        if (external) sources.push('Open Food Facts')
+        existing = await repository.getByBarcode(candidate)
+        external = await lookupOpenFoodFacts(candidate).catch(() => null)
+        if (code || existing || external) {
+          code = candidate
+          break
+        }
       }
+      if (existing) sources.push('Eigene Datenbank')
+      if (external) sources.push('Open Food Facts')
       if (ocrText) sources.push('Foto (Texterkennung)')
 
       const ocrIngredients = ocrText ? extractIngredients(ocrText) : null
