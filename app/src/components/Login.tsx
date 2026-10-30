@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { LogoStacked } from './Logo'
 
 export function Login() {
   const [email, setEmail] = useState('')
@@ -18,20 +19,23 @@ export function Login() {
   }
 
   return (
-    <div className="card">
-      <h2>Anmelden</h2>
-      {sent ? (
-        <p>Wir haben dir einen Login-Link an {email} geschickt.</p>
-      ) : (
-        <form onSubmit={submit} className="stack">
-          <label>
-            E-Mail
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </label>
-          <button className="primary">Login-Link senden</button>
-          {error && <p className="error">{error}</p>}
-        </form>
-      )}
+    <div className="splash">
+      <LogoStacked />
+      <div className="card" style={{ width: '100%' }}>
+        <h2>Anmelden</h2>
+        {sent ? (
+          <p>Wir haben dir einen Login-Link an {email} geschickt.</p>
+        ) : (
+          <form onSubmit={submit} className="stack">
+            <label>
+              E-Mail
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </label>
+            <button className="primary">Login-Link senden</button>
+            {error && <p className="error">{error}</p>}
+          </form>
+        )}
+      </div>
     </div>
   )
 }
