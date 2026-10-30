@@ -10,8 +10,8 @@ gemeinsamen Datenbank, die so mit der Zeit wächst.
 | Status | Wann |
 | --- | --- |
 | **Sicher glutenfrei lt. Hersteller** | Zertifizierungslogo (durchgestrichene Ähre) auf der Packung **oder** Hersteller hat auf Nachfrage bestätigt und die Antwort ist höchstens 6 Monate alt |
-| **Keine glutenhaltigen Zutaten** | Die Zutatenliste nennt kein Gluten (auch wenn „glutenfrei“ ohne Logo auf der Packung steht oder Spuren anderer Allergene genannt werden). Kreuzkontamination ist nicht ausgeschlossen. Nur bei verlässlich gelesener Zutatenliste, sonst „Unbekannt“ |
-| **Kann Spuren von Gluten enthalten** | Spurenhinweis nennt Weizen/Gerste/… oder Hersteller hat nicht bestätigt |
+| **Keine glutenhaltigen Zutaten** | Die Zutatenliste nennt kein Gluten (auch wenn „glutenfrei“ ohne Logo auf der Packung steht). Die Einstufung beruht allein auf der Zutatenliste. Kreuzkontamination ist nicht ausgeschlossen. Nur bei verlässlich gelesener Zutatenliste, sonst „Unbekannt“ |
+| **Kann Spuren von Gluten enthalten** | Spurenhinweis in der Zutatenliste nennt Weizen/Gerste/… oder Hersteller hat nicht bestätigt |
 | **Enthält Gluten** | glutenhaltige Zutat (Weizen, Roggen, Gerste, Hafer, Dinkel, Malz, …) |
 | **Unbekannt** | Zu wenig oder unsicher gelesene Informationen |
 

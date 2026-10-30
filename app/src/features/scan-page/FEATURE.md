@@ -49,6 +49,12 @@ danach unter „So wurde geprüft“ (`CheckSteps`). Ein Fehler einer Quelle sto
 - **Unsicheres Foto** (weniger als 90 % sicher gelesene Wörter, `TRUSTED_QUALITY`) ohne bessere Quelle: rotes X mit „Fotos schwer
   lesbar, die Zutaten sind unsicher“ und drei Bulletpoints, darunter die gelesene Liste als „unsicher“. Gleiches Design bei „Keine
   Zutaten gefunden“. Liefert eine andere Quelle die Zutaten, steht die Liste von dort.
+- **Gluten-Schluss nur aus der Zutatenliste:** Verpackungstext, Werbeaussagen („glutenfrei“), Zubereitung und Open-Food-Facts-Tags
+  entscheiden nichts (sie erscheinen unter „Hinweise“). Spuren zählen nur, wenn sie in der Zutatenliste stehen. Nennt die Liste einer
+  anderen Quelle Gluten, die gewählte aber nicht, lautet die Einstufung **Unbekannt** mit Hinweis auf den Widerspruch.
+- **Weitere Fotos:** Fehlt die Zutatenliste oder ist sie unsicher gelesen, erscheint „Weitere Fotos hinzufügen“. Die Prüfung läuft mit
+  allen bisherigen und den neuen Fotos erneut (bereits gelesene Fotos werden nicht neu gelesen); eingegebene Angaben bleiben.
+- **Häkchen:** Jeder beendete Prüfschritt zeigt ein ✓ (das Ergebnis steht im Text); nur ein Fehler zeigt ein ✗.
 - Eine unsichere Liste ergibt höchstens **Unbekannt**; gefundene Gluten-Wörter und Spurenhinweise zählen trotzdem. Hat der Nutzer die
   Zutaten korrigiert, gilt sie als verlässlich. Eine unsichere, nicht korrigierte Liste wird nicht als `ingredients_text` gespeichert.
 - **Produktangaben** stammen aus der eigenen Datenbank, Open Food Facts, der Hersteller-Website (Name nur bei nachweislich gleichem

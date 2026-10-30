@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { AccountMenu } from './components/AccountMenu'
 import { Login } from './components/Login'
@@ -16,14 +16,16 @@ import type { Draft, Product } from './types'
 
 type View =
   | { kind: 'scan' }
-  | { kind: 'draft'; draft: Draft }
+  | { kind: 'draft'; draft: Draft; id: number }
   | { kind: 'list' }
   | { kind: 'product'; product: Product }
 
 export default function App() {
   const [view, setView] = useState<View>({ kind: 'scan' })
   const [session, setSession] = useState<Session | null | undefined>(supabase ? undefined : null)
-  const scan = useScanFlow((draft) => setView({ kind: 'draft', draft }))
+  // `id` setzt die Scan-Seite bei einer neuen Prüfung zurück (z. B. nach weiteren Fotos)
+  const draftId = useRef(0)
+  const scan = useScanFlow((draft) => setView({ kind: 'draft', draft, id: ++draftId.current }))
 
   useEffect(() => {
     if (!supabase) return
@@ -62,7 +64,11 @@ export default function App() {
           <Scanner scan={scan} />
         ) : view.kind === 'draft' ? (
           <ScanPage
+            key={view.id}
             draft={view.draft}
+            onAddPhotos={(files, carry) => scan.addPhotos(files, carry)}
+            steps={scan.steps}
+            checkError={scan.error}
             onSaved={(product) => setView({ kind: 'product', product })}
             onCancel={() => setView({ kind: 'scan' })}
           />
@@ -73,7 +79,7 @@ export default function App() {
             product={view.product}
             onChange={(product) => setView({ kind: 'product', product })}
             onBack={() => setView({ kind: 'list' })}
-            onEdit={() => setView({ kind: 'draft', draft: draftFromProduct(view.product) })}
+            onEdit={() => setView({ kind: 'draft', draft: draftFromProduct(view.product), id: ++draftId.current })}
           />
         )}
       </main>

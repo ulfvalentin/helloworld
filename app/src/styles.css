@@ -168,6 +168,7 @@ nav button[aria-disabled='true'] { opacity: 0.55; }
 .check-list li > .icon { margin-top: 2px; }
 .check-list small { display: block; color: var(--muted); font-size: 0.85rem; font-weight: 400; }
 .check-list li.step-wartet { opacity: 0.55; }
+.check-list li.step-fertig > .icon, .check-list li.result-found > .icon, .check-list li.result-none > .icon, .check-list li.result-skipped > .icon { color: var(--green); }
 .check-list li.result-error > .icon { color: var(--red); }
 .check-list li.result-warn > .icon { color: var(--orange); }
 .check-list a { color: var(--highlight-text); font-weight: 600; }

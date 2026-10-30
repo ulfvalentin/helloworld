@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ScanFlow } from '../lib/useScanFlow'
 import { CheckProgress } from './CheckProgress'
-import { CameraIcon, ImageUpIcon } from './icons'
+import { PhotoButtons } from './PhotoButtons'
 
 const STEPS = [
   { title: 'Vorderseite fotografieren', hint: 'Produktname und Logo sollen zu sehen sein.' },
@@ -14,6 +14,11 @@ const STEPS = [
 export function Scanner({ scan }: { scan: ScanFlow }) {
   const { files, setFiles, barcode, setBarcode, busy, steps, error } = scan
 
+  // Texterkennung schon laden, während der Nutzer fotografiert (spart beim Prüfen ca. 5 s)
+  useEffect(() => {
+    void import('../lib/ocr').then((m) => m.warmUp())
+  }, [])
+
   // Vorschaubilder erzeugen und wieder freigeben. Im Effekt statt in useMemo, weil React im Entwicklungsmodus
   // Effekte zweimal ausführt und freigegebene Adressen sonst weiter benutzt würden.
   const [previews, setPreviews] = useState<string[]>([])
@@ -22,12 +27,6 @@ export function Scanner({ scan }: { scan: ScanFlow }) {
     setPreviews(urls)
     return () => urls.forEach((u) => URL.revokeObjectURL(u))
   }, [files])
-
-  function add(e: React.ChangeEvent<HTMLInputElement>) {
-    const picked = Array.from(e.target.files ?? [])
-    e.target.value = '' // dieselbe Datei darf erneut gewählt werden
-    if (picked.length > 0) setFiles((prev) => [...prev, ...picked])
-  }
 
   return (
     <div className="card stack">
@@ -42,17 +41,7 @@ export function Scanner({ scan }: { scan: ScanFlow }) {
       </ol>
       <p className="muted small">Mehrere Fotos sind möglich.</p>
 
-      <div className="photo-buttons">
-        {/* mit capture öffnet das Handy die Kamera, ohne die Galerie (iOS bietet beides nie zugleich an) */}
-        <label className="photo-button">
-          <CameraIcon /> Foto aufnehmen
-          <input type="file" accept="image/*" capture="environment" onChange={add} hidden disabled={busy} />
-        </label>
-        <label className="photo-button secondary">
-          <ImageUpIcon /> Foto hochladen
-          <input type="file" accept="image/*" multiple onChange={add} hidden disabled={busy} />
-        </label>
-      </div>
+      <PhotoButtons onPick={(picked) => setFiles((prev) => [...prev, ...picked])} disabled={busy} />
 
       {files.length > 0 && (
         <div className="thumbs">

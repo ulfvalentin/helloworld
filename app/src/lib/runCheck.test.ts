@@ -133,7 +133,7 @@ describe('runCheck', () => {
     expect(draft.check.steps[1]).toMatchObject({ source: 'hersteller', status: 'none', summary: 'nichts' })
   })
 
-  it('Quellen widersprechen sich bei Gluten: Warnung, und die Einstufung beachtet die Quelle mit Weizen', async () => {
+  it('Quellen widersprechen sich bei Gluten: Warnung, und die Einstufung ist unbekannt', async () => {
     const d = deps({ lookupOpenFoodFacts: vi.fn().mockResolvedValue(offProduct({ ingredientsText: 'Weizenmehl, Speisesalz', tags: [] })) })
     const draft = await runCheck(d, { files: photo, barcode: '' })
     const warn = draft.check.notes.filter((n) => n.level === 'warn').map((n) => n.text).join(' ')
@@ -141,9 +141,9 @@ describe('runCheck', () => {
     expect(draft.check.reconciliation.status).toBe('differs')
     expect(draft.input.label_text).toMatch(/Quelle Open Food Facts: Weizenmehl, Speisesalz/)
     const r = classify({ ingredientsText: draft.input.ingredients_text, labelText: draft.input.label_text, now: new Date('2026-10-29') })
-    expect(r.status).toBe('contains_gluten')
+    expect(r.status).toBe('unknown')
     expect(r.glutenFindings).toContainEqual({ word: 'Weizenmehl', cereal: 'Weizen', where: 'quelle', source: 'Open Food Facts' })
-    expect(r.reasons.join(' ')).toMatch(/Laut Open Food Facts stehen glutenhaltige Zutaten/)
+    expect(r.reasons.join(' ')).toMatch(/Laut Open Food Facts stehen glutenhaltige Zutaten, die in der gewählten/)
   })
 
   it('vergleicht mit der eigenen Datenbank und meldet eine geänderte Rezeptur', async () => {
