@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ScanFlow } from '../lib/useScanFlow'
 import { CheckProgress } from './CheckProgress'
 import { PhotoButtons } from './PhotoButtons'
+import { Viewfinder } from './Viewfinder'
 
 /** Scan-Bildschirm. Die Auswertung startet der „Prüfen“-Button in der unteren Leiste (siehe App). */
 export function Scanner({ scan }: { scan: ScanFlow }) {
@@ -24,9 +25,9 @@ export function Scanner({ scan }: { scan: ScanFlow }) {
   return (
     <div className="page stack">
       <h1>Was möchtest du prüfen?</h1>
-      <p className="muted">
-        Fotografiere Vorderseite, Zutatenliste und Barcode – danach unten auf „Prüfen“ tippen.
-      </p>
+      <Viewfinder onCode={(code) => void scan.startWithBarcode(code)} paused={busy} />
+      <h2 className="label">Ohne Barcode</h2>
+      <p className="muted small">Fotografiere Vorderseite und Zutatenliste, dann unten auf „Prüfen“ tippen.</p>
 
       <PhotoButtons onPick={(picked) => setFiles((prev) => [...prev, ...picked])} disabled={busy} />
 
