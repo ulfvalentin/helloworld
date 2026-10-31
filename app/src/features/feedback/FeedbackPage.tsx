@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CheckIcon } from '../../components/icons'
-import { repository } from '../../lib/repository'
+import { sendFeedback } from './sendFeedback'
 
 const DRAFT_KEY = 'ws-feedback-draft'
 const readDraft = () => {
@@ -33,7 +33,7 @@ export function FeedbackPage({ email, page, onDone }: { email: string | null; pa
     setBusy(true)
     setError(null)
     try {
-      await repository.addFeedback({ message: text.trim(), page, email })
+      await sendFeedback({ message: text.trim(), page, email })
       writeDraft('')
       setText('')
       setSent(true)
