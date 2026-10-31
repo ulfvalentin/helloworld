@@ -1,5 +1,4 @@
 import { supabase } from '../../lib/supabase'
-import { repository } from '../../lib/repository'
 
 export interface FeedbackInput {
   message: string
@@ -8,13 +7,11 @@ export interface FeedbackInput {
 }
 
 export interface SendDeps {
-  addFeedback(input: FeedbackInput): Promise<void>
   getToken(): Promise<string | null>
-  post(token: string, input: FeedbackInput): Promise<boolean>
+  post(token: string, input: FeedbackInput): Promise<{ ok: boolean; error?: string }>
 }
 
 const defaultDeps: SendDeps = {
-  addFeedback: (input) => repository.addFeedback(input),
   getToken: async () => (supabase ? ((await supabase.auth.getSession()).data.session?.access_token ?? null) : null),
   async post(token, { message, page }) {
     const res = await fetch('/api/feedback', {
@@ -23,24 +20,19 @@ const defaultDeps: SendDeps = {
       body: JSON.stringify({ message, page }),
       signal: AbortSignal.timeout(15000),
     }).catch(() => null)
-    return Boolean(res?.ok)
+    if (!res) return { ok: false, error: 'Keine Verbindung. Bitte später noch einmal versuchen.' }
+    const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
+    return { ok: res.ok && body?.ok !== false, error: body?.error }
   },
 }
 
 /**
- * Feedback über zwei Wege ablegen: als Zeile in der Tabelle `feedback` und als GitHub-Issue (`/api/feedback`).
- * Es genügt, wenn ein Weg klappt; nur wenn beide scheitern, wird der Fehler der Datenbank gemeldet.
+ * Sendet das Feedback an `/api/feedback`, das es als GitHub-Issue anlegt.
+ * Wirft mit der Begründung der Funktion, wenn es nicht geklappt hat.
  */
-export async function sendFeedback(input: FeedbackInput, deps: SendDeps = defaultDeps): Promise<{ database: boolean; issue: boolean }> {
-  const issue = (async () => {
-    const token = await deps.getToken()
-    return token ? deps.post(token, input) : false
-  })().catch(() => false)
-  const db = deps.addFeedback(input).then(
-    () => ({ ok: true as const }),
-    (error: unknown) => ({ ok: false as const, error }),
-  )
-  const [issueOk, dbResult] = await Promise.all([issue, db])
-  if (!issueOk && !dbResult.ok) throw dbResult.error instanceof Error ? dbResult.error : new Error(String(dbResult.error))
-  return { database: dbResult.ok, issue: issueOk }
+export async function sendFeedback(input: FeedbackInput, deps: SendDeps = defaultDeps): Promise<void> {
+  const token = await deps.getToken()
+  if (!token) throw new Error('Bitte zuerst anmelden, um Feedback zu senden.')
+  const result = await deps.post(token, input)
+  if (!result.ok) throw new Error(result.error ?? 'Das Feedback konnte nicht gesendet werden.')
 }

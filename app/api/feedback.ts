@@ -1,7 +1,7 @@
 // Feedback aus der App als GitHub-Issue ablegen (Vercel-Funktion, POST /api/feedback).
 // Nur angemeldete Nutzer: Das Supabase-Zugangstoken wird beim Projekt geprüft. Der GitHub-Token liegt nur
 // als Umgebungsvariable GITHUB_TOKEN (oder GITHUB_FEEDBACK) in Vercel (nie im Code). Ohne Token antwortet die Funktion mit 503,
-// die App speichert das Feedback dann trotzdem in der Datenbank.
+// die App meldet das dann als Fehler.
 
 /** Öffentliche Werte (stehen auch in .env.production); per Umgebungsvariable überschreibbar. */
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'https://jvjkvydixrwxmdhadxge.supabase.co'
@@ -87,7 +87,11 @@ export default {
       }),
       signal: AbortSignal.timeout(8000),
     }).catch(() => null)
-    if (!res?.ok) return json({ ok: false, error: 'GitHub hat das Feedback nicht angenommen' }, 502)
+    if (!res?.ok) {
+      // GitHubs Begründung (z. B. fehlende Token-Rechte) durchreichen, damit sie in der App sichtbar ist
+      const detail = res ? ((await res.json().catch(() => null)) as { message?: string } | null)?.message : 'keine Verbindung'
+      return json({ ok: false, error: `GitHub hat das Feedback nicht angenommen (${res?.status ?? 'Fehler'}${detail ? `: ${String(detail).slice(0, 160)}` : ''})` }, 502)
+    }
     const issue = (await res.json().catch(() => null)) as { html_url?: string } | null
     return json({ ok: true, url: issue?.html_url ?? null })
   },
