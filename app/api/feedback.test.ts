@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import handler, { issueBody, issueTitle } from './feedback'
+import handler, { githubToken, issueBody, issueTitle } from './feedback'
 
 const post = (body: unknown, token?: string) =>
   new Request('https://x.test/api/feedback', {
@@ -11,6 +11,7 @@ const post = (body: unknown, token?: string) =>
 afterEach(() => {
   vi.unstubAllGlobals()
   delete process.env.GITHUB_TOKEN
+  delete process.env.Github_Feedback
 })
 
 describe('issueTitle / issueBody', () => {
@@ -24,6 +25,15 @@ describe('issueTitle / issueBody', () => {
     expect(b).toContain('> Zeile 2')
     expect(b).toContain('Gesendet von: a@​b.de'.replace('a@​b', 'a@b'))
     expect(b).toContain('Bildschirm: scan')
+  })
+})
+
+describe('githubToken', () => {
+  it('findet GITHUB_TOKEN oder GITHUB_FEEDBACK in beliebiger Schreibweise', () => {
+    expect(githubToken({ GITHUB_TOKEN: 'a' })).toBe('a')
+    expect(githubToken({ Github_Feedback: ' b ' })).toBe('b')
+    expect(githubToken({ GITHUB_FEEDBACK_TOKEN: 'c' })).toBe('c')
+    expect(githubToken({ GITHUB_TOKEN: '', OTHER: 'x' })).toBeUndefined()
   })
 })
 
@@ -56,6 +66,12 @@ describe('POST /api/feedback', () => {
     expect(sent.title).toBe('Feedback: Dunkelmodus bitte')
     expect(sent.body).toContain('ulf@example.com')
     expect(((call[1] as RequestInit).headers as Record<string, string>).authorization).toBe('Bearer gh')
+  })
+
+  it('akzeptiert den Token auch unter dem Namen Github_Feedback', async () => {
+    process.env.Github_Feedback = 'gh'
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (url.includes('/auth/v1/user') ? Response.json({ email: 'a@b.de' }) : Response.json({ html_url: 'u' }, { status: 201 }))))
+    expect((await handler.fetch(post({ message: 'hi' }, 'good'))).status).toBe(200)
   })
 
   it('weist leeren und zu langen Text ab', async () => {
