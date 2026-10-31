@@ -224,3 +224,6 @@ input[type='date']::-webkit-datetime-edit { padding: 0; }
 
 /* Einzeilige Felder und Auswahllisten überall gleich hoch, damit nebeneinanderstehende Felder bündig sind */
 input:not([type='checkbox']):not([type='file']), select { height: 48px; }
+
+/* Feedback: großes Freitextfeld */
+.feedback-text { min-height: 280px; resize: vertical; line-height: 1.5; }
