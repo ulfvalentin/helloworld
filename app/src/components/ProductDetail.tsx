@@ -12,6 +12,7 @@ export function ProductDetail({
   onEdit,
   onBack,
   onRescan,
+  onDeleted,
   notice,
 }: {
   product: Product
@@ -20,6 +21,8 @@ export function ProductDetail({
   onBack: () => void
   /** Führt zum Scan-Bildschirm, um das Produkt neu zu prüfen */
   onRescan: () => void
+  /** Nach dem Löschen des Eintrags */
+  onDeleted: () => void
   /** Hinweis nach dem Speichern (z. B. was von der Herstellerseite ergänzt wurde) */
   notice?: string | null
 }) {
@@ -98,6 +101,8 @@ export function ProductDetail({
         )}
         <ConfirmationForm productId={product.id} onSaved={onChange} />
       </div>
+
+      <DeleteProduct product={product} onDeleted={onDeleted} />
     </div>
   )
 }
@@ -119,6 +124,46 @@ function ContactLine({ c }: { c: ManufacturerConfirmation }) {
         </span>
       ))}
     </span>
+  )
+}
+
+/** Grauer Button ganz unten; erst nach einer Rückfrage wird gelöscht. */
+function DeleteProduct({ product, onDeleted }: { product: Product; onDeleted: () => void }) {
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function remove() {
+    setBusy(true)
+    setError(null)
+    try {
+      await repository.deleteProduct(product.id)
+      onDeleted()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setBusy(false)
+    }
+  }
+
+  if (!asking)
+    return (
+      <button type="button" className="delete-button" onClick={() => setAsking(true)}>
+        Datenbankeintrag löschen
+      </button>
+    )
+  return (
+    <div className="card stack" role="alertdialog" aria-label="Eintrag löschen">
+      <p>
+        „{product.name ?? 'Unbenanntes Produkt'}“ mit allen Herstellerbestätigungen löschen? Das kann nicht rückgängig gemacht werden.
+      </p>
+      <button type="button" className="delete-button" onClick={remove} disabled={busy}>
+        {busy ? 'Lösche …' : 'Endgültig löschen'}
+      </button>
+      <button type="button" className="text-button" onClick={() => setAsking(false)} disabled={busy}>
+        Abbrechen
+      </button>
+      {error && <p className="error" role="alert">{error}</p>}
+    </div>
   )
 }
 

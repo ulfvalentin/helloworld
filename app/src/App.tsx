@@ -83,6 +83,7 @@ export default function App() {
             product={view.product}
             notice={view.notice}
             onRescan={() => setView({ kind: 'scan' })}
+            onDeleted={() => setView({ kind: 'list' })}
             onChange={(product) => setView({ kind: 'product', product })}
             onBack={() => setView({ kind: 'list' })}
             onEdit={() => setView({ kind: 'draft', draft: draftFromProduct(view.product), id: ++draftId.current })}
