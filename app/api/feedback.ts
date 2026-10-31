@@ -72,27 +72,31 @@ export default {
     if (message.length > MAX_LENGTH) return json({ ok: false, error: 'Feedback zu lang' }, 413)
 
     const page = typeof body?.page === 'string' ? body.page.slice(0, 40) : null
-    const res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${ghToken}`,
-        accept: 'application/vnd.github+json',
-        'content-type': 'application/json',
-        'user-agent': 'wheat-shield-feedback',
-      },
-      body: JSON.stringify({
-        title: issueTitle(message),
-        body: issueBody(message, { page, email, userAgent: request.headers.get('user-agent'), at: new Date().toISOString() }),
-        labels: ['feedback'],
-      }),
-      signal: AbortSignal.timeout(8000),
-    }).catch(() => null)
+    const issue = {
+      title: issueTitle(message),
+      body: issueBody(message, { page, email, userAgent: request.headers.get('user-agent'), at: new Date().toISOString() }),
+    }
+    const create = (withLabel: boolean) =>
+      fetch(`https://api.github.com/repos/${REPO}/issues`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${ghToken}`,
+          accept: 'application/vnd.github+json',
+          'content-type': 'application/json',
+          'user-agent': 'wheat-shield-feedback',
+        },
+        body: JSON.stringify(withLabel ? { ...issue, labels: ['feedback'] } : issue),
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => null)
+    // Das Label „feedback“ anzulegen oder zu setzen kann an Token-Rechten scheitern – dann ohne Label versuchen
+    let res = await create(true)
+    if (res && (res.status === 403 || res.status === 422)) res = await create(false)
     if (!res?.ok) {
       // GitHubs Begründung (z. B. fehlende Token-Rechte) durchreichen, damit sie in der App sichtbar ist
       const detail = res ? ((await res.json().catch(() => null)) as { message?: string } | null)?.message : 'keine Verbindung'
       return json({ ok: false, error: `GitHub hat das Feedback nicht angenommen (${res?.status ?? 'Fehler'}${detail ? `: ${String(detail).slice(0, 160)}` : ''})` }, 502)
     }
-    const issue = (await res.json().catch(() => null)) as { html_url?: string } | null
-    return json({ ok: true, url: issue?.html_url ?? null })
+    const created = (await res.json().catch(() => null)) as { html_url?: string } | null
+    return json({ ok: true, url: created?.html_url ?? null })
   },
 }
