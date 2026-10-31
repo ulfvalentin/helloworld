@@ -216,3 +216,6 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; min-height: 
 input[type='date']::-webkit-datetime-edit { padding: 0; }
 .login-card { width: 100%; margin-bottom: 0; }
 .login-card .text-button { align-self: center; }
+
+/* Löschen: bewusst grau und unauffällig, nie in Statusfarben */
+.delete-button { width: 100%; background: var(--ws-surface-2); color: var(--ws-muted); box-shadow: none; font-weight: 600; }

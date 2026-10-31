@@ -11,6 +11,8 @@ export interface Repository {
   saveProduct(input: ProductInput, id?: string): Promise<Product>
   addConfirmation(productId: string, input: ConfirmationInput): Promise<Product>
   recordScan(productId: string, ocrText: string | null): Promise<void>
+  /** Löscht das Produkt samt Herstellerbestätigungen. Wirft, wenn es nicht gelöscht werden durfte. */
+  deleteProduct(id: string): Promise<void>
 }
 
 /** Stuft ein Produkt anhand seiner gespeicherten Daten neu ein (Bestätigungen altern!). */
@@ -105,6 +107,13 @@ function supabaseRepository(): Repository {
       await db.from('products').update({ status: product.status, status_reasons: product.status_reasons }).eq('id', productId)
       return product
     },
+    async deleteProduct(id) {
+      const { data, error } = await db.from('products').delete().eq('id', id).select('id')
+      if (error) throw error
+      // Ohne passende Löschrichtlinie meldet Supabase keinen Fehler, löscht aber nichts
+      if (!data?.length)
+        throw new Error('Der Eintrag konnte nicht gelöscht werden. Nur wer ihn angelegt hat, darf ihn löschen (Migration 20261102000000 ausgeführt?).')
+    },
     async recordScan(productId, ocrText) {
       await db.from('scans').insert({ product_id: productId, ocr_text: ocrText })
     },
@@ -172,6 +181,9 @@ function localRepository(): Repository {
       Object.assign(p, withStatus(p))
       store(all)
       return p
+    },
+    async deleteProduct(id) {
+      store(load().filter((p) => p.id !== id))
     },
     async recordScan() {},
   }
