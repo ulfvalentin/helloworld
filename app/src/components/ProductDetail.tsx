@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
+import { completeFromManufacturer } from '../features/email-import/completeProduct'
 import { CONFIRMATION_VALID_MONTHS, classify } from '../lib/classify'
 import { formatDate, infoAge } from '../lib/infoAge'
+import { lookupManufacturer } from '../lib/manufacturer'
 import { repository } from '../lib/repository'
 import type { ManufacturerConfirmation, Product } from '../types'
 import { CheckIcon, TriangleAlertIcon, XIcon } from './icons'
@@ -39,6 +41,24 @@ export function ProductDetail({
   )
   const validUntil = result.confirmationValidUntil
   const age = infoAge(product)
+  const [searching, setSearching] = useState(false)
+  const [searchNotice, setSearchNotice] = useState<string | null>(null)
+  const missing = !product.ingredients_text || !product.image_url
+
+  /** Herstellerseite (bei Bedarf Händlerseiten) nach fehlenden Zutaten und Foto durchsuchen */
+  async function search() {
+    setSearching(true)
+    setSearchNotice(null)
+    try {
+      const done = await completeFromManufacturer({ repository, lookupManufacturer }, product.id)
+      if (done.product) onChange(done.product)
+      setSearchNotice(done.notice)
+    } catch (e) {
+      setSearchNotice(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSearching(false)
+    }
+  }
   return (
     <div className="stack">
       <div className="card result">
@@ -50,10 +70,15 @@ export function ProductDetail({
         <p className="small muted">Angaben eingetragen am {formatDate(age.date)}</p>
         <button onClick={onEdit}>Angaben bearbeiten</button>
       </div>
-      {notice && (
+      {(searchNotice ?? notice) && (
         <p className="notice-box" role="status">
-          {notice}
+          {searchNotice ?? notice}
         </p>
+      )}
+      {missing && (
+        <button type="button" onClick={search} disabled={searching}>
+          {searching ? 'Suche läuft …' : `${!product.ingredients_text ? 'Zutaten' : 'Foto'}${!product.ingredients_text && !product.image_url ? ' und Foto' : ''} online suchen`}
+        </button>
       )}
       {age.stale && (
         <div className="card stack stale" role="alert">

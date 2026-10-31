@@ -112,7 +112,7 @@ function reportMfr(c: CheckContext): StepReport {
     return {
       source: 'hersteller',
       status: 'found',
-      summary: `Zutaten gefunden (${host(list.url!)})${list.exact ? '' : ' – nicht eindeutig dasselbe Produkt'}.`,
+      summary: `Zutaten gefunden (${host(list.url!)}${c.manufacturer?.source === 'haendler' ? ', Händlerseite' : ''})${list.exact ? '' : ' – nicht eindeutig dasselbe Produkt'}.`,
       url: list.url,
     }
   if (!c.searched) return { source: 'hersteller', status: 'skipped', summary: 'Zu wenig Angaben zum Suchen (Produktname oder Barcode fehlt).' }

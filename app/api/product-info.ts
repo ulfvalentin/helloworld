@@ -27,6 +27,8 @@ export interface ProductInfoResult {
   allergens: string | null
   /** Produktfoto der Seite (schema.org-Bild oder og:image), absolute https-Adresse */
   imageUrl: string | null
+  /** Woher die Angaben stammen: Hersteller-/Markenseite oder (Ersatz) eine Händlerseite */
+  source?: 'hersteller' | 'haendler'
   /** false: Produkt nicht nachweislich dasselbe (nur Zutatenwörter passen) oder ähnliche Varianten mit gleichen Gluten-Zutaten */
   exact: boolean
   /** Besuchte Adressen, zur Nachvollziehbarkeit */
@@ -415,12 +417,25 @@ export function pickBest(
 
 const registrable = (host: string) => host.replace(/^www\./, '')
 
-function candidateSites(q: ProductInfoQuery): string[] {
+/**
+ * Mögliche Adressen der Hersteller-/Markenseite: Webadressen von Verpackung/E-Mail, dann geratene Domains.
+ * Geraten wird aus der Marke und aus den ersten Wörtern des Produktnamens: Bei Importeuren oder Handelsmarken
+ * steht als „Hersteller“ die Firma (Importhaus Wilms), die Marke („Wan Kwai“) hat aber eine eigene Seite (wankwai.de).
+ */
+export function candidateSites(q: ProductInfoQuery): string[] {
   const out = [...q.urls]
-  const slug = brandSlug(q.brand)
-  if (slug) for (const tld of ['de', 'com']) out.push(`https://www.${slug}.${tld}/`)
-  return [...new Set(out)].slice(0, 5)
+  const words = normalize(q.name ?? '').split(/[^a-z0-9]+/).filter((w) => w.length >= 2 && !STOPWORDS.has(w))
+  const slugs = [
+    brandSlug(q.brand),
+    words.slice(0, 2).join(''),
+    words[0] && words[0].length >= 5 ? words[0] : '',
+  ].filter((s, i, all) => s.length >= 4 && all.indexOf(s) === i)
+  for (const slug of slugs) for (const tld of ['de', 'com']) out.push(`https://${slug}.${tld}/`, `https://www.${slug}.${tld}/`)
+  return [...new Set(out)].slice(0, 10)
 }
+
+/** Seiten, die keine Händler sind und nie Produktdaten liefern. */
+const NOT_RETAILER = /facebook|instagram|youtube|pinterest|linkedin|xing|twitter|tiktok|wikipedia|amazon\.|ebay\.|reddit|gutefrage/i
 
 function resultLinks(html: string): string[] {
   const urls: string[] = []
@@ -478,6 +493,7 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
         glutenStatements: hit.page.glutenStatements,
         allergens: hit.page.allergens,
         imageUrl: hit.page.imageUrl ?? null,
+        source: 'hersteller',
         exact,
         checked: ctx.checked,
         message: exact
@@ -527,11 +543,13 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
 
   // 2b) Produktübersichten durchblättern (Kategorie → Produktseiten) und anhand von Barcode bzw.
   // Zutatenwörtern vom Foto vergleichen. Funktioniert ohne Websuche und ohne bekannten Produktnamen.
-  if (q.barcode || (q.hints?.length ?? 0) >= 3) {
+  if (q.barcode || (q.hints?.length ?? 0) >= 3 || tokens.length > 0) {
     const sameSite = (p: Page) =>
       p.links.filter((l) => registrable(new URL(l.href).hostname) === registrable(new URL(p.url).hostname))
     // Bereiche ohne Produktdaten ausklammern, damit das Abrufbudget für Produktseiten reicht
     const NOT_PRODUCTS = /sustainab|climate|nachhaltig|about|who|career|job|press|legal|datenschutz|privacy|impressum|kontakt|contact|faq|news|blog|recipe|rezept|store|login|cart|warenkorb/i
+    // Links, deren Text oder Adresse Wörter des Produktnamens enthalten, kommen zuerst
+    const nameHits = new Map<string, number>()
     const productLinks = () =>
       [
         ...new Set(
@@ -539,11 +557,17 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
             .flatMap(sameSite)
             .filter((l) => {
               const path = new URL(l.href).pathname
-              return /produkt|product|sortiment/i.test(path) && !NOT_PRODUCTS.test(path)
+              return /produkt|product|sortiment|collection/i.test(path) && !NOT_PRODUCTS.test(path)
             })
-            .map((l) => l.href.split('#')[0]),
+            .map((l) => {
+              const href = l.href.split('#')[0]
+              const hay = normalize(`${l.label} ${decodeURIComponent(href)}`)
+              nameHits.set(href, Math.max(nameHits.get(href) ?? 0, tokens.filter((t) => hay.includes(t)).length))
+              return href
+            }),
         ),
       ].filter((h) => !seen.has(h))
+    const byName = (a: string, b: string) => (nameHits.get(b) ?? 0) - (nameHits.get(a) ?? 0)
     const depth = (h: string) => new URL(h).pathname.split('/').filter(Boolean).length
     // Deutsche Seiten zuerst: Die englische Variante nennt die Zutaten oft anders und wird nicht erkannt.
     const german = (h: string) => {
@@ -555,8 +579,8 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
       for (let i = 0; i < urls.length && !best(); i += concurrency) await Promise.all(urls.slice(i, i + concurrency).map(visit))
     }
     // erst Übersichten (flach), dann die darin verlinkten Produktseiten (tief)
-    await visitAll(productLinks().sort((a, b) => german(a) - german(b) || depth(a) - depth(b)).slice(0, 4))
-    if (!best()) await visitAll(productLinks().sort((a, b) => german(a) - german(b) || depth(b) - depth(a)).slice(0, 24))
+    await visitAll(productLinks().sort((a, b) => byName(a, b) || german(a) - german(b) || depth(a) - depth(b)).slice(0, 4))
+    if (!best()) await visitAll(productLinks().sort((a, b) => byName(a, b) || german(a) - german(b) || depth(b) - depth(a)).slice(0, 24))
     if (best()) return done()
   }
 
@@ -580,6 +604,24 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
     })
     .slice(0, 3)
   await Promise.all(manufacturerHits.map(visit))
+  if (best()) return done()
+
+  // 4) Ersatz: Händlerseiten, die das Produkt anbieten (nur wenn Name oder Barcode die Seite eindeutig zuordnen)
+  const retailerHits = searchHits.filter((u) => !manufacturerHits.includes(u) && !NOT_RETAILER.test(u)).slice(0, 5)
+  await Promise.all(retailerHits.map(visit))
+  const retailer = best()
+  if (retailer) {
+    const manufacturerHosts = new Set([...sites, ...manufacturerHits].map((u) => registrable(new URL(u).hostname)))
+    const fromRetailer = !manufacturerHosts.has(registrable(new URL(retailer.page.url).hostname))
+    const result = done()
+    if (fromRetailer)
+      return {
+        ...result,
+        source: 'haendler',
+        message: `Zutaten auf der Händlerseite ${registrable(new URL(retailer.page.url).hostname)} gefunden (Hersteller-Seite ohne Zutaten) – bitte mit der Packung vergleichen.`,
+      }
+    return result
+  }
   return done()
 }
 

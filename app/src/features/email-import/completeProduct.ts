@@ -45,5 +45,6 @@ export async function completeFromManufacturer(
   if (added.length === 0 && next.label_text === existing.label_text)
     return { product: existing, notice: 'Auf der Herstellerseite gab es nichts Neues zu ergänzen.' }
   const product = await deps.repository.saveProduct(next, existing.id)
-  return { product, notice: added.length ? `${added.join(' und ')} von der Herstellerseite ergänzt.` : 'Hinweise der Herstellerseite ergänzt.' }
+  const from = found.source === 'haendler' ? 'einer Händlerseite (bitte mit der Packung vergleichen)' : 'der Herstellerseite'
+  return { product, notice: added.length ? `${added.join(' und ')} von ${from} ergänzt.` : `Hinweise von ${from} ergänzt.` }
 }

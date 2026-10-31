@@ -30,6 +30,11 @@ describe('completeFromManufacturer', () => {
     expect(r.notice).toMatch(/nichts Neues/)
   })
 
+  it('nennt eine Händlerseite als Quelle', async () => {
+    const { res } = run(product(), mfr({ source: 'haendler' }))
+    expect((await res).notice).toBe('Zutaten und Foto von einer Händlerseite (bitte mit der Packung vergleichen) ergänzt.')
+  })
+
   it('übernimmt nichts von einer nur ähnlichen Seite', async () => {
     const { res, saveProduct } = run(product(), mfr({ exact: false }))
     expect((await res).notice).toMatch(/ähnliches Produkt/)
