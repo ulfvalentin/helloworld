@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CheckIcon, ImageUpIcon, MailIcon } from '../../components/icons'
 import { StatusBadge } from '../../components/StatusBadge'
 import { repository } from '../../lib/repository'
@@ -50,12 +50,24 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
   const [contactEmail, setContactEmail] = useState('')
   const [contact, setContact] = useState('')
   const [busy, setBusy] = useState(false)
+  // Das Ergebnis steht unter den Eingabefeldern – auf dem Handy außerhalb des Bildschirms, deshalb hinscrollen
+  const result = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (parsed) result.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+  }, [parsed])
   const [error, setError] = useState<string | null>(null)
 
   async function read(text: string) {
     setError(null)
     if (!text.trim()) return
-    const mail = parseEmail(text)
+    let mail: ParsedEmail
+    try {
+      mail = parseEmail(text)
+    } catch {
+      setParsed(null)
+      setError('Die E-Mail konnte nicht gelesen werden. Bitte nur den Text der Antwort einfügen.')
+      return
+    }
     setParsed(mail)
     setProduct(mail.product ?? '')
     setBrand(mail.manufacturer ?? '')
@@ -137,8 +149,14 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
         </div>
       </div>
 
+      {!parsed && error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+
       {parsed && (
-        <div className="card stack">
+        <div className="card stack" ref={result}>
           <h3>Erkannt</h3>
           {unclear && (
             <p className="notice-box warn">

@@ -160,7 +160,8 @@ function cutQuotes(text: string): string {
 }
 
 function sentences(text: string): string[] {
-  return text.replace(/\s+/g, ' ').split(/(?<=[.!?])\s+|\n/).map((s) => s.trim()).filter(Boolean)
+  // ohne Lookbehind: ältere iPhones (vor iOS 16.4) können ein Skript mit Lookbehind gar nicht laden
+  return text.replace(/\s+/g, ' ').replace(/([.!?])\s+/g, '$1\n').split('\n').map((s) => s.trim()).filter(Boolean)
 }
 
 const NEGATIVE = [

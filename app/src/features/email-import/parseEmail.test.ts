@@ -111,4 +111,10 @@ LinkedIn: [www.linkedin.com/company/importhaus-wilms/](https://www.linkedin.com/
     expect(r.phone).toBe('+49 89 123456')
     expect(r.contactName).toBe('Anna Beispiel')
   })
+
+  it('wirft bei ungewöhnlichen Eingaben nie', () => {
+    const odd = ['x', '\n\n', 'Von:', 'Von: a\nBetreff: b', '>>>>', 'Mit freundlichen Grüßen', '=?UTF-8?B?????=', '\r\nSubject: x\r\n\r\n', 'a@b', '<html><body>glutenfrei</body></html>']
+    for (const t of odd) expect(() => parseEmail(t)).not.toThrow()
+    expect(parseEmail(FORWARD.replace(/\n/g, '\r\n')).manufacturer).toBe('Theodor Kattus GmbH')
+  })
 })
