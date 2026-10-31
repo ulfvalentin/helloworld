@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CONFIRMATION_VALID_MONTHS, classify } from '../lib/classify'
 import { repository } from '../lib/repository'
-import type { Product } from '../types'
+import type { ManufacturerConfirmation, Product } from '../types'
 import { CheckIcon, XIcon } from './icons'
 import { Verdict } from './Verdict'
 
@@ -62,7 +62,7 @@ export function ProductDetail({
                     <XIcon /> nicht bestätigt
                   </span>
                 )}
-                {c.contact && <span className="muted"> · {c.contact}</span>}
+                <ContactLine c={c} />
                 {c.note && <div className="small">{c.note}</div>}
               </li>
             ))}
@@ -74,10 +74,32 @@ export function ProductDetail({
   )
 }
 
+/** Ansprechpartner, E-Mail (anklickbar) und weitere Angaben einer Bestätigung. */
+function ContactLine({ c }: { c: ManufacturerConfirmation }) {
+  const parts = [
+    c.contact_name,
+    c.contact_email && <a key="m" href={`mailto:${c.contact_email}`}>{c.contact_email}</a>,
+    c.contact,
+  ].filter(Boolean)
+  if (parts.length === 0) return null
+  return (
+    <span className="muted">
+      {parts.map((p, i) => (
+        <span key={i}>
+          {' · '}
+          {p}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function ConfirmationForm({ productId, onSaved }: { productId: string; onSaved: (p: Product) => void }) {
   const today = new Date().toISOString().slice(0, 10)
   const [confirmedAt, setConfirmedAt] = useState(today)
   const [positive, setPositive] = useState(true)
+  const [contactName, setContactName] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
   const [contact, setContact] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -89,9 +111,13 @@ function ConfirmationForm({ productId, onSaved }: { productId: string; onSaved: 
       const p = await repository.addConfirmation(productId, {
         confirmed_at: confirmedAt,
         confirms_gluten_free: positive,
-        contact: contact || null,
+        contact_name: contactName.trim() || null,
+        contact_email: contactEmail.trim() || null,
+        contact: contact.trim() || null,
         note: note || null,
       })
+      setContactName('')
+      setContactEmail('')
       setContact('')
       setNote('')
       onSaved(p)
@@ -117,8 +143,16 @@ function ConfirmationForm({ productId, onSaved }: { productId: string; onSaved: 
         </label>
       </div>
       <label>
-        Kontakt (E-Mail, Telefon, Ansprechpartner)
-        <input value={contact} onChange={(e) => setContact(e.target.value)} />
+        Ansprechpartner
+        <input value={contactName} onChange={(e) => setContactName(e.target.value)} autoComplete="off" />
+      </label>
+      <label>
+        E-Mail-Adresse
+        <input type="email" inputMode="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} autoComplete="off" />
+      </label>
+      <label>
+        Weitere Angaben (Funktion, Telefon)
+        <input value={contact} onChange={(e) => setContact(e.target.value)} autoComplete="off" />
       </label>
       <label>
         Notiz / Wortlaut der Antwort
