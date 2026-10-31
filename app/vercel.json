@@ -2,7 +2,24 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "functions": {
-    "api/product-info.ts": { "maxDuration": 15 },
-    "api/feedback.ts": { "maxDuration": 15 }
-  }
+    "api/product-info.ts": {
+      "maxDuration": 15
+    },
+    "api/feedback.ts": {
+      "maxDuration": 15
+    }
+  },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "app-fawn-phi-1agzd9c3re.vercel.app"
+        }
+      ],
+      "destination": "https://www.wheatshield.de/:path*",
+      "permanent": true
+    }
+  ]
 }
