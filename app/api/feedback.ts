@@ -1,12 +1,18 @@
 // Feedback aus der App als GitHub-Issue ablegen (Vercel-Funktion, POST /api/feedback).
 // Nur angemeldete Nutzer: Das Supabase-Zugangstoken wird beim Projekt geprüft. Der GitHub-Token liegt nur
-// als Umgebungsvariable GITHUB_TOKEN in Vercel (nie im Code). Ohne Token antwortet die Funktion mit 503,
+// als Umgebungsvariable GITHUB_TOKEN (oder GITHUB_FEEDBACK) in Vercel (nie im Code). Ohne Token antwortet die Funktion mit 503,
 // die App speichert das Feedback dann trotzdem in der Datenbank.
 
 /** Öffentliche Werte (stehen auch in .env.production); per Umgebungsvariable überschreibbar. */
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'https://jvjkvydixrwxmdhadxge.supabase.co'
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? 'sb_publishable_XFAKLhYRwJK-byA-VlDi8Q_XgcVTe-4'
 const REPO = process.env.FEEDBACK_REPO ?? 'ulfvalentin/helloworld'
+
+/** GitHub-Token aus der Umgebung: `GITHUB_TOKEN` oder `GITHUB_FEEDBACK` (Groß-/Kleinschreibung egal). */
+export function githubToken(env: Record<string, string | undefined> = process.env): string | undefined {
+  const key = Object.keys(env).find((k) => /^github_(token|feedback)(_token)?$/i.test(k) && env[k]?.trim())
+  return key ? env[key]!.trim() : undefined
+}
 
 export interface FeedbackRequest {
   message: string
@@ -53,8 +59,8 @@ const json = (body: unknown, status = 200) => Response.json(body, { status, head
 export default {
   async fetch(request: Request): Promise<Response> {
     if (request.method !== 'POST') return json({ ok: false, error: 'POST erwartet' }, 405)
-    const githubToken = process.env.GITHUB_TOKEN
-    if (!githubToken) return json({ ok: false, configured: false, error: 'GITHUB_TOKEN ist in Vercel nicht gesetzt' }, 503)
+    const ghToken = githubToken()
+    if (!ghToken) return json({ ok: false, configured: false, error: 'GITHUB_TOKEN (oder GITHUB_FEEDBACK) ist in Vercel nicht gesetzt' }, 503)
 
     const token = /^Bearer (.+)$/i.exec(request.headers.get('authorization') ?? '')?.[1]
     const email = token ? await verifyUser(token) : false
@@ -69,7 +75,7 @@ export default {
     const res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
       method: 'POST',
       headers: {
-        authorization: `Bearer ${githubToken}`,
+        authorization: `Bearer ${ghToken}`,
         accept: 'application/vnd.github+json',
         'content-type': 'application/json',
         'user-agent': 'wheat-shield-feedback',
