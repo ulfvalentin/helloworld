@@ -20,7 +20,7 @@ const writeDraft = (text: string) => {
 }
 
 /**
- * Feedback senden: ein großes Freitextfeld, „Senden“ schreibt den Text in die Tabelle `feedback`.
+ * Feedback senden: ein großes Freitextfeld, „Senden“ legt den Text als GitHub-Issue an (`/api/feedback`).
  * Diktieren geht über die Spracheingabe der Handy-Tastatur. Ein nicht gesendeter Entwurf bleibt im Browser erhalten.
  */
 export function FeedbackPage({ email, page, onDone }: { email: string | null; page: string; onDone: () => void }) {
