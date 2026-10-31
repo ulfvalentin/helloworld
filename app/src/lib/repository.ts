@@ -74,11 +74,18 @@ function supabaseRepository(): Repository {
         updated_at: '',
         confirmations: existing?.confirmations ?? [],
       })
-      const row = { ...input, status, status_reasons }
-      const { data, error } = existing
-        ? await db.from('products').update(row).eq('id', existing.id).select('id').single()
-        : await db.from('products').insert(row).select('id').single()
-      if (error) throw error
+      const write = (row: Record<string, unknown>) =>
+        existing
+          ? db.from('products').update(row).eq('id', existing.id).select('id').single()
+          : db.from('products').insert(row).select('id').single()
+      const row = { ...input, status, status_reasons, info_updated_at: new Date().toISOString() }
+      let { data, error } = await write(row)
+      if (error && /info_updated_at/.test(error.message)) {
+        // Datenbank noch ohne die Spalte aus 20261101000000_product_info_date.sql
+        const { info_updated_at: _t, ...legacy } = row
+        ;({ data, error } = await write(legacy))
+      }
+      if (error || !data) throw error ?? new Error('Speichern fehlgeschlagen')
       return (await repo.getById(data.id))!
     },
     async addConfirmation(productId, input) {
@@ -147,7 +154,7 @@ function localRepository(): Repository {
       const now = new Date().toISOString()
       const idx = all.findIndex((x) => (id ? x.id === id : input.barcode && x.barcode === input.barcode))
       const base = idx >= 0 ? all[idx] : { id: crypto.randomUUID(), created_at: now, confirmations: [] }
-      const product = withStatus({ ...base, ...input, updated_at: now } as Product)
+      const product = withStatus({ ...base, ...input, updated_at: now, info_updated_at: now } as Product)
       if (idx >= 0) all[idx] = product
       else all.push(product)
       store(all)

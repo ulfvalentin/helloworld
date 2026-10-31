@@ -20,7 +20,7 @@ type View =
   | { kind: 'draft'; draft: Draft; id: number }
   | { kind: 'list' }
   | { kind: 'email' }
-  | { kind: 'product'; product: Product }
+  | { kind: 'product'; product: Product; notice?: string | null }
 
 export default function App() {
   const [view, setView] = useState<View>({ kind: 'scan' })
@@ -75,12 +75,14 @@ export default function App() {
             onCancel={() => setView({ kind: 'scan' })}
           />
         ) : view.kind === 'email' ? (
-          <EmailImport onSaved={(product) => setView({ kind: 'product', product })} />
+          <EmailImport onSaved={(product, notice) => setView({ kind: 'product', product, notice })} />
         ) : view.kind === 'list' ? (
           <ProductList onOpen={(product) => setView({ kind: 'product', product })} />
         ) : (
           <ProductDetail
             product={view.product}
+            notice={view.notice}
+            onRescan={() => setView({ kind: 'scan' })}
             onChange={(product) => setView({ kind: 'product', product })}
             onBack={() => setView({ kind: 'list' })}
             onEdit={() => setView({ kind: 'draft', draft: draftFromProduct(view.product), id: ++draftId.current })}

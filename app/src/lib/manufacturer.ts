@@ -5,6 +5,8 @@ export interface ManufacturerResult {
   ingredients: string | null
   glutenStatements: string[]
   allergens: string | null
+  /** Produktfoto von der Hersteller-Seite (https) */
+  imageUrl?: string | null
   /** false: Zutaten eines sehr ähnlichen Produkts */
   exact: boolean
   message: string
