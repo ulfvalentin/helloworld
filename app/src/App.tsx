@@ -8,6 +8,7 @@ import { DatabaseIcon, MailIcon, ScanLineIcon } from './components/icons'
 import { ProductList } from './components/ProductList'
 import { Scanner } from './components/Scanner'
 import { EmailImport } from './features/email-import'
+import { FeedbackPage } from './features/feedback'
 import { ScanPage } from './features/scan-page'
 import { repository } from './lib/repository'
 import { supabase } from './lib/supabase'
@@ -20,6 +21,7 @@ type View =
   | { kind: 'draft'; draft: Draft; id: number }
   | { kind: 'list' }
   | { kind: 'email' }
+  | { kind: 'feedback'; from: string }
   | { kind: 'product'; product: Product; notice?: string | null }
 
 export default function App() {
@@ -37,7 +39,7 @@ export default function App() {
   }, [])
 
   const needsLogin = supabase && session === null
-  const tab = view.kind === 'list' || view.kind === 'product' ? 'list' : view.kind === 'email' ? 'email' : 'scan'
+  const tab = view.kind === 'feedback' ? null : view.kind === 'list' || view.kind === 'product' ? 'list' : view.kind === 'email' ? 'email' : 'scan'
 
   return (
     <div className="app">
@@ -46,7 +48,11 @@ export default function App() {
         <header>
           <LogoHorizontal />
           {supabase && session && (
-            <AccountMenu email={session.user.email ?? null} onSignOut={() => supabase!.auth.signOut()} />
+            <AccountMenu
+              email={session.user.email ?? null}
+              onFeedback={() => setView({ kind: 'feedback', from: view.kind })}
+              onSignOut={() => supabase!.auth.signOut()}
+            />
           )}
         </header>
       )}
@@ -74,6 +80,8 @@ export default function App() {
             onSaved={(product) => setView({ kind: 'product', product })}
             onCancel={() => setView({ kind: 'scan' })}
           />
+        ) : view.kind === 'feedback' ? (
+          <FeedbackPage email={session?.user.email ?? null} page={view.from} onDone={() => setView({ kind: 'scan' })} />
         ) : view.kind === 'email' ? (
           <EmailImport onSaved={(product, notice) => setView({ kind: 'product', product, notice })} />
         ) : view.kind === 'list' ? (

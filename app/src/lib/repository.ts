@@ -13,6 +13,8 @@ export interface Repository {
   recordScan(productId: string, ocrText: string | null): Promise<void>
   /** Löscht das Produkt samt Herstellerbestätigungen. Wirft, wenn es nicht gelöscht werden durfte. */
   deleteProduct(id: string): Promise<void>
+  /** Schreibt Feedback in die Tabelle `feedback` (im Demo-Modus nur lokal). */
+  addFeedback(input: { message: string; page: string | null; email: string | null }): Promise<void>
 }
 
 /** Stuft ein Produkt anhand seiner gespeicherten Daten neu ein (Bestätigungen altern!). */
@@ -114,6 +116,20 @@ function supabaseRepository(): Repository {
       if (!data?.length)
         throw new Error('Der Eintrag konnte nicht gelöscht werden. Nur wer ihn angelegt hat, darf ihn löschen (Migration 20261102000000 ausgeführt?).')
     },
+    async addFeedback({ message, page, email }) {
+      const { error } = await db.from('feedback').insert({
+        message,
+        page,
+        user_email: email,
+        user_agent: typeof navigator === 'undefined' ? null : navigator.userAgent.slice(0, 300),
+      })
+      if (error)
+        throw new Error(
+          /feedback/.test(error.message) && /(does not exist|schema cache)/.test(error.message)
+            ? 'Die Tabelle „feedback“ fehlt noch in Supabase (Migration 20261103000000 ausführen).'
+            : error.message,
+        )
+    },
     async recordScan(productId, ocrText) {
       await db.from('scans').insert({ product_id: productId, ocr_text: ocrText })
     },
@@ -184,6 +200,12 @@ function localRepository(): Repository {
     },
     async deleteProduct(id) {
       store(load().filter((p) => p.id !== id))
+    },
+    async addFeedback(input) {
+      const key = 'glutencheck.feedback.v1'
+      const all = JSON.parse(localStorage.getItem(key) ?? '[]')
+      all.push({ ...input, created_at: new Date().toISOString() })
+      localStorage.setItem(key, JSON.stringify(all))
     },
     async recordScan() {},
   }
