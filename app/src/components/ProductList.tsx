@@ -33,14 +33,17 @@ export function ProductList({ onOpen }: { onOpen: (p: Product) => void }) {
           Suche
           <input placeholder="Name, Marke oder Barcode" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
-        <select value={filter} onChange={(e) => setFilter(e.target.value as GlutenStatus | '')}>
-          <option value="">Alle</option>
-          {Object.entries(STATUS_META).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v.label}
-            </option>
-          ))}
-        </select>
+        <label>
+          Status
+          <select value={filter} onChange={(e) => setFilter(e.target.value as GlutenStatus | '')}>
+            <option value="">Alle</option>
+            {Object.entries(STATUS_META).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       {error && <p className="error">{error}</p>}
       {products === null ? (

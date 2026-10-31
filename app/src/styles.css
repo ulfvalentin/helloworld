@@ -219,3 +219,6 @@ input[type='date']::-webkit-datetime-edit { padding: 0; }
 
 /* Löschen: bewusst grau und unauffällig, nie in Statusfarben */
 .delete-button { width: 100%; background: var(--ws-surface-2); color: var(--ws-muted); box-shadow: none; font-weight: 600; }
+
+/* Einzeilige Felder und Auswahllisten überall gleich hoch, damit nebeneinanderstehende Felder bündig sind */
+input:not([type='checkbox']):not([type='file']), select { height: 48px; }
