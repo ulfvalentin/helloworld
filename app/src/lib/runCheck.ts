@@ -55,14 +55,14 @@ export const EMPTY_INPUT: ProductInput = {
 }
 
 export function stripProduct(p: Product): ProductInput {
-  const { id: _i, created_at: _c, updated_at: _u, confirmations: _k, status: _s, status_reasons: _r, ...rest } = p
+  const { id: _i, created_at: _c, updated_at: _u, info_updated_at: _t, confirmations: _k, status: _s, status_reasons: _r, ...rest } = p
   return rest
 }
 
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const host = (url: string) => new URL(url).hostname.replace(/^www\./, '')
 
-function listOf(source: SourceId, text: string | null | undefined, extra: Partial<SourceList> = {}): SourceList | null {
+export function listOf(source: SourceId, text: string | null | undefined, extra: Partial<SourceList> = {}): SourceList | null {
   if (!text?.trim()) return null
   const { items, traces } = parseIngredients(text)
   // Gespeichert wird die bereinigte Liste; Spurenhinweise bleiben als Satz dabei, denn sie zählen zur Zutatenliste

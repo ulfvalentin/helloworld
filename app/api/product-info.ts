@@ -25,6 +25,8 @@ export interface ProductInfoResult {
   /** Sätze der Seite, die Gluten erwähnen („Alle unsere Nudeln sind glutenfrei.“) */
   glutenStatements: string[]
   allergens: string | null
+  /** Produktfoto der Seite (schema.org-Bild oder og:image), absolute https-Adresse */
+  imageUrl: string | null
   /** false: Produkt nicht nachweislich dasselbe (nur Zutatenwörter passen) oder ähnliche Varianten mit gleichen Gluten-Zutaten */
   exact: boolean
   /** Besuchte Adressen, zur Nachvollziehbarkeit */
@@ -234,7 +236,44 @@ interface Page {
   ingredients: string | null
   glutenStatements: string[]
   allergens: string | null
+  imageUrl?: string | null
   links: { href: string; label: string }[]
+}
+
+/** Produktfoto: schema.org-Product (image) vor og:image; nur absolute https-Adressen, keine Logos/Icons. */
+export function extractImage(pageUrl: string, html: string): string | null {
+  const candidates: string[] = []
+  for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const walk = (v: unknown): void => {
+        if (Array.isArray(v)) return v.forEach(walk)
+        if (!v || typeof v !== 'object') return
+        const o = v as Record<string, unknown>
+        const type = [o['@type']].flat().join(' ')
+        if (/Product/i.test(type)) {
+          const img = [o.image].flat()[0]
+          if (typeof img === 'string') candidates.push(img)
+          else if (img && typeof img === 'object' && typeof (img as { url?: unknown }).url === 'string') candidates.push((img as { url: string }).url)
+        }
+        Object.values(o).forEach(walk)
+      }
+      walk(JSON.parse(m[1]))
+    } catch {
+      // kaputtes JSON-LD ignorieren
+    }
+  }
+  const og = /<meta[^>]+(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image)["'][^>]*content=["']([^"']+)["']/i.exec(html)
+    ?? /<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:image|twitter:image)["']/i.exec(html)
+  if (og) candidates.push(og[1])
+  for (const c of candidates) {
+    try {
+      const u = new URL(decodeEntities(c), pageUrl)
+      if (u.protocol === 'https:' && !/logo|favicon|icon|sprite|placeholder/i.test(u.pathname)) return u.toString()
+    } catch {
+      // ungültige Adresse
+    }
+  }
+  return null
 }
 
 export function parsePage(url: string, html: string): Page {
@@ -264,6 +303,7 @@ export function parsePage(url: string, html: string): Page {
     ingredients: extractIngredients(plain),
     glutenStatements: extractGlutenStatements(plain),
     allergens: extractAllergens(plain),
+    imageUrl: extractImage(url, html),
     links,
   }
 }
@@ -437,6 +477,7 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
         ingredients: hit.page.ingredients,
         glutenStatements: hit.page.glutenStatements,
         allergens: hit.page.allergens,
+        imageUrl: hit.page.imageUrl ?? null,
         exact,
         checked: ctx.checked,
         message: exact
@@ -451,6 +492,7 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
       ingredients: null,
       glutenStatements: [],
       allergens: null,
+      imageUrl: null,
       exact: true,
       checked: ctx.checked,
       message: ambiguous

@@ -8,6 +8,7 @@ import {
   isIdentified,
   isPrivateAddress,
   nameTokens,
+  extractImage,
   parsePage,
   pickBest,
   relevance,
@@ -191,5 +192,18 @@ describe('pickBest', () => {
     const withCode = { ...page('code', 'Wasser, Hafer, Rapsöl, Säureregulator (Dikaliumphosphat), X'), text: 'EAN 7394376623042' }
     const r = pickBest([withCode, page('other', 'Wasser, Hafer, Rapsöl, Säureregulator (Dikaliumphosphat), Y')], { ...q, barcode: '7394376623042' })
     expect(r.hit?.page.url).toBe('code')
+  })
+})
+
+describe('extractImage', () => {
+  const page = 'https://hersteller.de/produkte/ketjap'
+  it('bevorzugt das Produktbild aus schema.org', () => {
+    const html = `<meta property="og:image" content="https://hersteller.de/og.jpg"><script type="application/ld+json">{"@type":"Product","image":["/img/ketjap.jpg"]}</script>`
+    expect(extractImage(page, html)).toBe('https://hersteller.de/img/ketjap.jpg')
+  })
+  it('nimmt sonst og:image, aber keine Logos und kein http', () => {
+    expect(extractImage(page, '<meta property="og:image" content="https://hersteller.de/ketjap.png">')).toBe('https://hersteller.de/ketjap.png')
+    expect(extractImage(page, '<meta property="og:image" content="https://hersteller.de/assets/logo.png">')).toBeNull()
+    expect(extractImage(page, '<meta property="og:image" content="http://hersteller.de/ketjap.png">')).toBeNull()
   })
 })

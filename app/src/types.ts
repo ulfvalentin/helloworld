@@ -38,12 +38,14 @@ export interface Product {
   status_reasons: string[]
   created_at: string
   updated_at: string
+  /** Wann die Produktangaben zuletzt per Scan/Import eingetragen wurden (fehlt bei älteren Einträgen → `updated_at`) */
+  info_updated_at?: string | null
   confirmations: ManufacturerConfirmation[]
 }
 
 export type ProductInput = Omit<
   Product,
-  'id' | 'created_at' | 'updated_at' | 'confirmations' | 'status' | 'status_reasons'
+  'id' | 'created_at' | 'updated_at' | 'info_updated_at' | 'confirmations' | 'status' | 'status_reasons'
 >
 
 export type ConfirmationInput = Omit<ManufacturerConfirmation, 'id' | 'product_id' | 'created_at'>

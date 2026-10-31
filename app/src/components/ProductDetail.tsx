@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { CONFIRMATION_VALID_MONTHS, classify } from '../lib/classify'
+import { formatDate, infoAge } from '../lib/infoAge'
 import { repository } from '../lib/repository'
 import type { ManufacturerConfirmation, Product } from '../types'
-import { CheckIcon, XIcon } from './icons'
+import { CheckIcon, TriangleAlertIcon, XIcon } from './icons'
 import { Verdict } from './Verdict'
 
 export function ProductDetail({
@@ -10,11 +11,17 @@ export function ProductDetail({
   onChange,
   onEdit,
   onBack,
+  onRescan,
+  notice,
 }: {
   product: Product
   onChange: (p: Product) => void
   onEdit: () => void
   onBack: () => void
+  /** Führt zum Scan-Bildschirm, um das Produkt neu zu prüfen */
+  onRescan: () => void
+  /** Hinweis nach dem Speichern (z. B. was von der Herstellerseite ergänzt wurde) */
+  notice?: string | null
 }) {
   // Begründung mit den gefundenen Wörtern aus den gespeicherten Angaben neu berechnen
   const result = useMemo(
@@ -28,6 +35,7 @@ export function ProductDetail({
     [product],
   )
   const validUntil = result.confirmationValidUntil
+  const age = infoAge(product)
   return (
     <div className="stack">
       <div className="card result">
@@ -36,8 +44,28 @@ export function ProductDetail({
         <p className="muted">
           {[product.brand, product.barcode].filter(Boolean).join(' · ')}
         </p>
+        <p className="small muted">Angaben eingetragen am {formatDate(age.date)}</p>
         <button onClick={onEdit}>Angaben bearbeiten</button>
       </div>
+      {notice && (
+        <p className="notice-box" role="status">
+          {notice}
+        </p>
+      )}
+      {age.stale && (
+        <div className="card stack stale" role="alert">
+          <h3 className="box-title">
+            <TriangleAlertIcon className="icon-orange" /> Angaben aktualisieren
+          </h3>
+          <p>
+            Die Angaben sind älter als {CONFIRMATION_VALID_MONTHS} Monate (eingetragen am {formatDate(age.date)}). Rezepturen ändern sich –
+            bitte das Produkt erneut prüfen.
+          </p>
+          <button type="button" className="primary" onClick={onRescan}>
+            Jetzt neu prüfen
+          </button>
+        </div>
+      )}
       <Verdict result={result} onClose={onBack} />
 
       <div className="card stack">

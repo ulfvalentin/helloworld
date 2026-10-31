@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckIcon, ImageUpIcon, MailIcon } from '../../components/icons'
 import { StatusBadge } from '../../components/StatusBadge'
+import { lookupManufacturer } from '../../lib/manufacturer'
 import { repository } from '../../lib/repository'
 import { EMPTY_INPUT } from '../../lib/runCheck'
 import type { Product } from '../../types'
+import { completeFromManufacturer } from './completeProduct'
 import { type ParsedEmail, parseEmail } from './parseEmail'
 
 const words = (s: string | null) => (s ?? '').toLowerCase().split(/[^a-zäöüß0-9]+/).filter((w) => w.length >= 3)
@@ -35,7 +37,7 @@ const today = () => new Date().toISOString().slice(0, 10)
  * E-Mail eines Herstellers einfügen oder hochladen. Produkt, Hersteller, Datum und Aussage werden erkannt;
  * nach der Kontrolle landet das Produkt mit der Bestätigung in der Datenbank (siehe FEATURE.md).
  */
-export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
+export function EmailImport({ onSaved }: { onSaved: (p: Product, notice?: string) => void }) {
   const [raw, setRaw] = useState('')
   const [parsed, setParsed] = useState<ParsedEmail | null>(null)
   const [candidates, setCandidates] = useState<Product[]>([])
@@ -50,6 +52,7 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
   const [contactEmail, setContactEmail] = useState('')
   const [contact, setContact] = useState('')
   const [busy, setBusy] = useState(false)
+  const [stage, setStage] = useState<'save' | 'lookup'>('save')
   // Das Ergebnis steht unter den Eingabefeldern – auf dem Handy außerhalb des Bildschirms, deshalb hinscrollen
   const result = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -103,6 +106,7 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
 
   async function save() {
     setBusy(true)
+    setStage('save')
     setError(null)
     try {
       let id = target === 'new' ? null : target
@@ -123,7 +127,11 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
         contact: contact.trim() || null,
         note: note || null,
       })
-      onSaved(saved)
+      // Immer auch die Herstellerseite befragen: Zutaten und Produktfoto ergänzen, was dem Eintrag fehlt
+      setStage('lookup')
+      const site = parsed?.website ? [`https://${parsed.website.replace(/^https?:\/\//, '')}`] : []
+      const done = await completeFromManufacturer({ repository, lookupManufacturer }, id, site).catch(() => null)
+      onSaved(done?.product ? { ...done.product, confirmations: saved.confirmations } : saved, done?.notice)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -224,7 +232,7 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
             <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
           <button className="primary" onClick={save} disabled={busy || (target === 'new' && !product.trim())}>
-            <CheckIcon /> {busy ? 'Speichere …' : 'Mit Bestätigung speichern'}
+            <CheckIcon /> {busy ? (stage === 'lookup' ? 'Suche Zutaten und Foto beim Hersteller …' : 'Speichere …') : 'Mit Bestätigung speichern'}
           </button>
           {error && <p className="error">{error}</p>}
         </div>
