@@ -84,6 +84,20 @@ describe('POST /api/feedback', () => {
     expect((await res.json()).error).toBe('GitHub hat das Feedback nicht angenommen (403: Resource not accessible by personal access token)')
   })
 
+  it('versucht es ohne Label, wenn GitHub das Label ablehnt', async () => {
+    process.env.GITHUB_TOKEN = 'gh'
+    const bodies: unknown[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/auth/v1/user')) return Response.json({ email: 'a@b.de' })
+      const sent = JSON.parse(init!.body as string)
+      bodies.push(sent)
+      return sent.labels ? Response.json({ message: 'Resource not accessible by personal access token' }, { status: 403 }) : Response.json({ html_url: 'u' }, { status: 201 })
+    }))
+    const res = await handler.fetch(post({ message: 'hi' }, 'good'))
+    expect(res.status).toBe(200)
+    expect(bodies).toHaveLength(2)
+  })
+
   it('weist leeren und zu langen Text ab', async () => {
     process.env.GITHUB_TOKEN = 'gh'
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ email: 'a@b.de' })))
