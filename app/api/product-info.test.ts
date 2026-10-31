@@ -8,6 +8,7 @@ import {
   isIdentified,
   isPrivateAddress,
   nameTokens,
+  candidateSites,
   extractImage,
   parsePage,
   pickBest,
@@ -205,5 +206,17 @@ describe('extractImage', () => {
     expect(extractImage(page, '<meta property="og:image" content="https://hersteller.de/ketjap.png">')).toBe('https://hersteller.de/ketjap.png')
     expect(extractImage(page, '<meta property="og:image" content="https://hersteller.de/assets/logo.png">')).toBeNull()
     expect(extractImage(page, '<meta property="og:image" content="http://hersteller.de/ketjap.png">')).toBeNull()
+  })
+})
+
+describe('candidateSites', () => {
+  it('rät die Markenseite auch aus dem Produktnamen (Importeur als „Hersteller“)', () => {
+    const sites = candidateSites({ name: 'Wan Kwai Ketjap Manis', brand: 'Importhaus Wilms / Impuls GmbH & Co. KG', urls: ['https://www.importhaus-wilms.de'] })
+    expect(sites[0]).toBe('https://www.importhaus-wilms.de')
+    expect(sites).toContain('https://wankwai.de/')
+    expect(sites).toContain('https://www.wankwai.com/')
+  })
+  it('höchstens zehn Adressen', () => {
+    expect(candidateSites({ name: 'Alpha Beta Gamma', brand: 'Delta Epsilon', urls: [] }).length).toBeLessThanOrEqual(10)
   })
 })

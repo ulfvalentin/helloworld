@@ -7,6 +7,8 @@ export interface ManufacturerResult {
   allergens: string | null
   /** Produktfoto von der Hersteller-Seite (https) */
   imageUrl?: string | null
+  /** `haendler`: Hersteller-Seite ohne Zutaten, Angaben von einer Händlerseite */
+  source?: 'hersteller' | 'haendler'
   /** false: Zutaten eines sehr ähnlichen Produkts */
   exact: boolean
   message: string
