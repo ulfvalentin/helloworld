@@ -46,6 +46,8 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
   const [date, setDate] = useState(today())
   const [positive, setPositive] = useState(true)
   const [note, setNote] = useState('')
+  const [contactName, setContactName] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
   const [contact, setContact] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,18 +67,9 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
         .filter(Boolean)
         .join(' – '),
     )
-    const who = mail.fromName ?? mail.contactName
-    const email = mail.fromEmail ?? mail.contactEmail
-    setContact(
-      [
-        who && (mail.contactRole && who === mail.contactName ? `${who} (${mail.contactRole})` : who),
-        email,
-        mail.phone && `Tel. ${mail.phone}`,
-        mail.website,
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    )
+    setContactName(mail.contactName ?? mail.fromName ?? '')
+    setContactEmail(mail.contactEmail ?? mail.fromEmail ?? '')
+    setContact([mail.contactRole, mail.phone && `Tel. ${mail.phone}`, mail.website].filter(Boolean).join(' · '))
     try {
       const list = await findCandidates(mail)
       setCandidates(list)
@@ -113,7 +106,9 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
       const saved = await repository.addConfirmation(id, {
         confirmed_at: date,
         confirms_gluten_free: positive,
-        contact: contact || null,
+        contact_name: contactName.trim() || null,
+        contact_email: contactEmail.trim() || null,
+        contact: contact.trim() || null,
         note: note || null,
       })
       onSaved(saved)
@@ -195,8 +190,16 @@ export function EmailImport({ onSaved }: { onSaved: (p: Product) => void }) {
           </div>
           {!parsed.date && <p className="muted small">Kein Datum in der Mail gefunden – heutiges Datum eingesetzt.</p>}
           <label>
-            Kontakt
-            <input value={contact} onChange={(e) => setContact(e.target.value)} />
+            Ansprechpartner
+            <input value={contactName} onChange={(e) => setContactName(e.target.value)} autoComplete="off" />
+          </label>
+          <label>
+            E-Mail-Adresse
+            <input type="email" inputMode="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} autoComplete="off" />
+          </label>
+          <label>
+            Weitere Angaben (Funktion, Telefon, Website)
+            <input value={contact} onChange={(e) => setContact(e.target.value)} autoComplete="off" />
           </label>
           <label>
             Notiz / Wortlaut der Antwort

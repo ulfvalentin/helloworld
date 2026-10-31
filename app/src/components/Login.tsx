@@ -40,12 +40,12 @@ export function Login() {
   return (
     <div className="splash">
       <LogoStacked />
-      <div className="card" style={{ width: '100%' }}>
-        <h2>Anmelden</h2>
+      <div className="card stack login-card">
+        <h1>Anmelden</h1>
         {sent ? (
           <div className="stack">
             <p>Wir haben dir einen Login-Link an {email} geschickt.</p>
-            <button type="button" className="link" onClick={switchMode}>
+            <button type="button" className="text-button" onClick={switchMode}>
               Lieber mit Passwort anmelden
             </button>
           </div>
@@ -81,7 +81,7 @@ export function Login() {
                 {error}
               </p>
             )}
-            <button type="button" className="link" onClick={switchMode}>
+            <button type="button" className="text-button" onClick={switchMode}>
               {mode === 'password' ? 'Stattdessen Login-Link per E-Mail senden' : 'Lieber mit Passwort anmelden'}
             </button>
           </form>

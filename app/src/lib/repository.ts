@@ -82,7 +82,16 @@ function supabaseRepository(): Repository {
       return (await repo.getById(data.id))!
     },
     async addConfirmation(productId, input) {
-      const { error } = await db.from('manufacturer_confirmations').insert({ ...input, product_id: productId })
+      let { error } = await db.from('manufacturer_confirmations').insert({ ...input, product_id: productId })
+      if (error && /contact_(name|email)/.test(error.message)) {
+        // Datenbank noch ohne die Spalten aus 20261031000000_confirmation_contact_fields.sql: alles in `contact` ablegen
+        const { contact_name, contact_email, contact, ...rest } = input
+        ;({ error } = await db.from('manufacturer_confirmations').insert({
+          ...rest,
+          contact: [contact_name, contact_email, contact].filter(Boolean).join(' · ') || null,
+          product_id: productId,
+        }))
+      }
       if (error) throw error
       const product = (await repo.getById(productId))!
       // gespeicherten Status aktualisieren, damit Listen/Abfragen in der DB stimmen

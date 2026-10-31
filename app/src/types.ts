@@ -15,6 +15,9 @@ export interface ManufacturerConfirmation {
   /** ISO-Datum (YYYY-MM-DD) der Herstellerantwort */
   confirmed_at: string
   confirms_gluten_free: boolean
+  /** Ansprechpartner und seine E-Mail-Adresse (getrennt); `contact` enthält weitere Angaben wie Funktion oder Telefon */
+  contact_name?: string | null
+  contact_email?: string | null
   contact: string | null
   note: string | null
   created_at: string
