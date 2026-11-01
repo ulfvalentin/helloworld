@@ -7,7 +7,10 @@ import '@fontsource/archivo/700.css'
 import '@fontsource/archivo/800.css'
 import '@fontsource/archivo/900.css'
 import App from './App'
+import { IS_TEST } from './lib/appEnv'
 import './styles.css'
+
+if (IS_TEST) document.title = `Test · ${document.title}`
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

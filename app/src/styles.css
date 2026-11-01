@@ -227,3 +227,6 @@ input:not([type='checkbox']):not([type='file']), select { height: 48px; }
 
 /* Feedback: großes Freitextfeld */
 .feedback-text { min-height: 280px; resize: vertical; line-height: 1.5; }
+
+/* Testumgebung: deutlicher, neutraler Hinweis ganz oben (keine Statusfarbe) */
+.test-banner { margin: 0 calc(var(--ws-space-5) * -1); padding: 6px var(--ws-space-5); background: var(--ws-surface-2); color: var(--ws-text); border-bottom: 1px solid var(--ws-border); font-size: 13px; font-weight: 700; text-align: center; }

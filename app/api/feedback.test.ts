@@ -25,6 +25,10 @@ describe('issueTitle / issueBody', () => {
     expect(b).toContain('> Zeile 2')
     expect(b).toContain('Gesendet von: a@​b.de'.replace('a@​b', 'a@b'))
     expect(b).toContain('Bildschirm: scan')
+    expect(b).not.toContain('Umgebung')
+  })
+  it('kennzeichnet Feedback aus der Testumgebung', () => {
+    expect(issueBody('x', { page: null, email: null, userAgent: null, at: 't', env: 'Test' })).toContain('Umgebung: Test')
   })
 })
 

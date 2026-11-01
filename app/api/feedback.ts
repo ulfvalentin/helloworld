@@ -30,7 +30,10 @@ export function issueTitle(message: string): string {
   return `Feedback: ${first.length > 70 ? first.slice(0, 67) + '…' : first}`
 }
 
-export function issueBody(message: string, meta: { page: string | null; email: string | null; userAgent: string | null; at: string }): string {
+export function issueBody(
+  message: string,
+  meta: { page: string | null; email: string | null; userAgent: string | null; at: string; env?: string | null },
+): string {
   const quoted = defuseMentions(message.trim()).split(/\r?\n/).map((l) => `> ${l}`).join('\n')
   const lines = [
     quoted,
@@ -38,6 +41,7 @@ export function issueBody(message: string, meta: { page: string | null; email: s
     '---',
     `Gesendet von: ${meta.email ?? 'unbekannt'}`,
     `Bildschirm: ${meta.page ?? 'unbekannt'}`,
+    ...(meta.env ? [`Umgebung: ${meta.env}`] : []),
     `Zeit: ${meta.at}`,
     meta.userAgent ? `Browser: ${meta.userAgent.slice(0, 200)}` : '',
   ]
@@ -74,7 +78,14 @@ export default {
     const page = typeof body?.page === 'string' ? body.page.slice(0, 40) : null
     const issue = {
       title: issueTitle(message),
-      body: issueBody(message, { page, email, userAgent: request.headers.get('user-agent'), at: new Date().toISOString() }),
+      body: issueBody(message, {
+        page,
+        email,
+        userAgent: request.headers.get('user-agent'),
+        at: new Date().toISOString(),
+        // Feedback aus der Testumgebung kenntlich machen (Vercel setzt VERCEL_ENV)
+        env: process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production' ? 'Test' : null,
+      }),
     }
     const create = (withLabel: boolean) =>
       fetch(`https://api.github.com/repos/${REPO}/issues`, {
