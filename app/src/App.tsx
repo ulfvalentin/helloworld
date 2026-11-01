@@ -13,6 +13,7 @@ import { ScanPage } from './features/scan-page'
 import { repository } from './lib/repository'
 import { supabase } from './lib/supabase'
 import { draftFromProduct } from './lib/runCheck'
+import { IS_TEST } from './lib/appEnv'
 import { useScanFlow } from './lib/useScanFlow'
 import type { Draft, Product } from './types'
 
@@ -43,6 +44,11 @@ export default function App() {
 
   return (
     <div className="app">
+      {IS_TEST && (
+        <p className="test-banner" role="note">
+          Testumgebung – Daten sind nicht echt
+        </p>
+      )}
       {/* Auf Splash und Login steht das gestapelte Logo – dort kein zweites im Header */}
       {session !== undefined && !needsLogin && (
         <header>
