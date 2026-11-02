@@ -11,7 +11,7 @@ das Foto gut lesbar ist – der Abgleich lebt davon, mehrere Quellen zu vergleic
 | # | Schritt | Was passiert |
 | --- | --- | --- |
 | 1 | **Barcode: Produkt bestimmen** | Barcode vom Foto/Live-Scan/eingetippt; eindeutige Bezeichnung aus eurer Datenbank, sonst aus **Open Food Facts** (gekennzeichnet) |
-| 2 | **Zutaten vom Foto lesen** | **Bild-KI** (`/api/read-label`, Claude) liest Produkt, Marke, Hersteller, Barcode-Ziffern, Zutatenliste und Spurenhinweis wörtlich; unsichere Stellen werden markiert. Ohne KI (nicht eingerichtet, nicht angemeldet, Fehler): Texterkennung im Browser (Tesseract) |
+| 2 | **Zutaten vom Foto lesen** | **Bild-KI** (`/api/read-label`, Google Gemini – kostenloses Kontingent; optional Claude) liest Produkt, Marke, Hersteller, Barcode-Ziffern, Zutatenliste und Spurenhinweis wörtlich; unsichere Stellen werden markiert. Ohne KI (nicht eingerichtet, nicht angemeldet, Fehler): Texterkennung im Browser (Tesseract) |
 | 3 | **Hersteller- und Markenseite durchsuchen** | Suche nach Marke + Produktname auf Hersteller-, Marken- oder Händlerseiten (`/api/product-info`); eine zweite passende Seite wird zum Vergleich mitgeliefert |
 | 4 | **Open Food Facts ergänzen** | Zutaten, Allergene und Spuren laut Open Food Facts – füllt Lücken, immer als „laut Open Food Facts“ gekennzeichnet |
 | 5 | **Quellen abgleichen** | Zutatenlisten vergleichen, Liste wählen, Hinweise und Produktangaben zusammenstellen |

@@ -57,7 +57,8 @@ Nützliche Views:
 Jede Prüfung läuft in fünf Schritten (Details: [`src/features/scan-page/FEATURE.md`](src/features/scan-page/FEATURE.md)):
 
 1. **Barcode → Produkt** – eindeutige Bezeichnung aus der eigenen Datenbank, sonst aus Open Food Facts (gekennzeichnet)
-2. **Zutaten vom Foto** – `api/read-label.ts` (Vercel-Funktion) lässt die Fotos von Claude lesen; ohne Schlüssel oder bei Fehlern
+2. **Zutaten vom Foto** – `api/read-label.ts` (Vercel-Funktion) lässt die Fotos von einer Bild-KI lesen (Google Gemini im
+   kostenlosen Kontingent, optional Claude); ohne Schlüssel, bei erschöpftem Kontingent oder Fehlern
    liest die Texterkennung im Browser (`src/lib/ocr.ts`, `src/lib/textClean.ts`)
 3. **Hersteller- und Markenseite** – `api/product-info.ts` sucht nach Marke + Produktname auf Hersteller-, Marken- und
    Händlerseiten; eine Seite zählt nur, wenn sie zum Produkt passt (Barcode, Name oder Zutatenwörter). Nur öffentliche http(s)-Adressen
@@ -65,8 +66,10 @@ Jede Prüfung läuft in fünf Schritten (Details: [`src/features/scan-page/FEATU
 5. **Abgleich** – die Zutatenlisten werden verglichen, Unterschiede erscheinen als Hinweise; nennt eine Quelle Gluten-Getreide,
    das anderswo fehlt, gibt es eine Warnung und die Einstufung lautet „Unbekannt“
 
-**Bild-KI einrichten:** In Vercel (Projekt „app“) die Umgebungsvariable `ANTHROPIC_API_KEY` setzen (Production und Preview).
-Der Schlüssel bleibt auf dem Server; ohne ihn funktioniert alles weiter mit der Texterkennung im Browser.
+**Bild-KI einrichten:** In Vercel (Projekt „app“) die Umgebungsvariable `GEMINI_API_KEY` setzen (Schlüssel aus Google AI Studio,
+Production und Preview), optional `GEMINI_MODEL` (Standard: `gemini-flash-latest`). Alternativ `ANTHROPIC_API_KEY` für Claude
+(kostenpflichtig, wird nur ohne Gemini-Schlüssel genutzt). Schlüssel bleiben auf dem Server; ohne sie funktioniert alles weiter
+mit der Texterkennung im Browser.
 
 Auf der Scan-Seite stehen Produkt, Hersteller und Barcode (mit Quelle), die vollständige Zutatenliste, die Hinweise und das
 Ergebnis jedes Schritts. Eine „glutenfrei“-Aussage der Hersteller-Website ergibt nur „Keine glutenhaltigen Zutaten“ – „Sicher
