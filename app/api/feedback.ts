@@ -3,7 +3,7 @@
 // als Umgebungsvariable GITHUB_TOKEN (oder GITHUB_FEEDBACK) in Vercel (nie im Code). Ohne Token antwortet die Funktion mit 503,
 // die App meldet das dann als Fehler.
 
-import { envMatching, json, verifyUser } from './_auth'
+import { envMatching, json, verifyUser } from './_auth.js'
 
 const REPO = process.env.FEEDBACK_REPO ?? 'ulfvalentin/helloworld'
 

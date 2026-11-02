@@ -3,7 +3,7 @@
 // gebogenen, spiegelnden oder kleinen Etiketten. Nur für angemeldete Nutzer; der API-Schlüssel liegt nur in Vercel
 // (ANTHROPIC_API_KEY). Ohne Schlüssel antwortet die Funktion mit 503 und die App liest wie bisher im Browser.
 import Anthropic from '@anthropic-ai/sdk'
-import { envMatching, json, verifyUser } from './_auth'
+import { envMatching, json, verifyUser } from './_auth.js'
 
 export interface LabelReading {
   product_name: string
