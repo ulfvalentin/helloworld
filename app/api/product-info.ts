@@ -27,6 +27,8 @@ export interface ProductInfoResult {
   allergens: string | null
   /** Produktfoto der Seite (schema.org-Bild oder og:image), absolute https-Adresse */
   imageUrl: string | null
+  /** Zweitbeste passende Seite mit Zutaten (andere Adresse) – die App vergleicht beide */
+  alternative?: { url: string; title: string | null; ingredients: string } | null
   /** Woher die Angaben stammen: Hersteller-/Markenseite oder (Ersatz) eine Händlerseite */
   source?: 'hersteller' | 'haendler'
   /** false: Produkt nicht nachweislich dasselbe (nur Zutatenwörter passen) oder ähnliche Varianten mit gleichen Gluten-Zutaten */
@@ -485,6 +487,12 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
   const done = (): ProductInfoResult => {
     const { hit, ambiguous, exact } = pickBest(pages, q)
     if (hit) {
+      // Zweite Seite zum Vergleich: ebenfalls eindeutig dieses Produkt, aber eine andere Website
+      const second = pages
+        .filter((p) => p.ingredients && p !== hit.page && registrable(new URL(p.url).hostname) !== registrable(new URL(hit.page.url).hostname))
+        .map((page) => ({ page, score: relevance(page, q) }))
+        .filter((r) => r.score >= ACCEPT_SCORE && isIdentified(r.page, q))
+        .sort((a, b) => b.score - a.score)[0]
       return {
         found: true,
         sourceUrl: hit.page.url,
@@ -493,6 +501,7 @@ export async function findProductInfo(q: ProductInfoQuery): Promise<ProductInfoR
         glutenStatements: hit.page.glutenStatements,
         allergens: hit.page.allergens,
         imageUrl: hit.page.imageUrl ?? null,
+        alternative: second ? { url: second.page.url, title: second.page.h1 || second.page.title || null, ingredients: second.page.ingredients! } : null,
         source: 'hersteller',
         exact,
         checked: ctx.checked,

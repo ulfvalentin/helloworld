@@ -7,6 +7,7 @@ const SOURCE_TITLE: Record<IngredientSource, string> = {
   foto: 'Zutaten vom Foto',
   datenbank: 'Zutaten aus eurer Datenbank',
   hersteller: 'Zutaten von der Hersteller-Website',
+  openfoodfacts: 'Zutaten laut Open Food Facts',
 }
 
 /** Hinweiskasten mit rotem X und Aufzählung, wenn die Zutaten nicht verwertbar sind. */

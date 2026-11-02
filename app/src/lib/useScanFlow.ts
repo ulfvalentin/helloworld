@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
+import { readLabel } from './labelReader'
 import { lookupManufacturer } from './manufacturer'
+import { lookupOpenFoodFacts } from './openFoodFacts'
 import { repository } from './repository'
 import { type ProgressStep, STEP_LABELS, runCheck } from './runCheck'
 import type { Draft } from '../types'
@@ -8,7 +10,7 @@ export { stripProduct } from './runCheck'
 
 export type ScanFlow = ReturnType<typeof useScanFlow>
 
-const INITIAL: ProgressStep[] = (['foto', 'hersteller', 'datenbank', 'abgleich'] as const).map((id, i) => ({
+const INITIAL: ProgressStep[] = (['datenbank', 'foto', 'hersteller', 'openfoodfacts', 'abgleich'] as const).map((id, i) => ({
   id,
   label: STEP_LABELS[id],
   state: i === 0 ? 'läuft' : 'wartet',
@@ -36,7 +38,9 @@ export function useScanFlow(onDraft: (d: Draft) => void) {
           decodeBarcode,
           recognizeText,
           getByBarcode: (code) => repository.getByBarcode(code),
+          lookupOpenFoodFacts,
           lookupManufacturer,
+          readLabel,
         },
         input,
         setSteps,

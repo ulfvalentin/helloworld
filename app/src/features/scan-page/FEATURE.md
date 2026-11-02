@@ -10,20 +10,21 @@ das Foto gut lesbar ist – der Abgleich lebt davon, mehrere Quellen zu vergleic
 
 | # | Schritt | Was passiert |
 | --- | --- | --- |
-| 1 | **Fotos prüfen** | Barcode lesen, Text erkennen, Zutatenblock, Firma, Webadressen und markante Zutatenwörter herausholen |
-| 2 | **Herstellerseite durchsuchen** | Hersteller-Website aufrufen und nach den Produktinformationen suchen (`/api/product-info`) |
-| 3 | **Mit eurer Datenbank abgleichen** | Bereits gespeichertes Produkt per Barcode finden |
-| 4 | **Quellen abgleichen** | Zutatenlisten vergleichen, Liste wählen, Hinweise und Produktangaben zusammenstellen |
+| 1 | **Barcode: Produkt bestimmen** | Barcode vom Foto/Live-Scan/eingetippt; eindeutige Bezeichnung aus eurer Datenbank, sonst aus **Open Food Facts** (gekennzeichnet) |
+| 2 | **Zutaten vom Foto lesen** | **Bild-KI** (`/api/read-label`, Claude) liest Produkt, Marke, Hersteller, Barcode-Ziffern, Zutatenliste und Spurenhinweis wörtlich; unsichere Stellen werden markiert. Ohne KI (nicht eingerichtet, nicht angemeldet, Fehler): Texterkennung im Browser (Tesseract) |
+| 3 | **Hersteller- und Markenseite durchsuchen** | Suche nach Marke + Produktname auf Hersteller-, Marken- oder Händlerseiten (`/api/product-info`); eine zweite passende Seite wird zum Vergleich mitgeliefert |
+| 4 | **Open Food Facts ergänzen** | Zutaten, Allergene und Spuren laut Open Food Facts – füllt Lücken, immer als „laut Open Food Facts“ gekennzeichnet |
+| 5 | **Quellen abgleichen** | Zutatenlisten vergleichen, Liste wählen, Hinweise und Produktangaben zusammenstellen |
 
-Schritt 3 läuft vor Schritt 2, weil Name und Marke daraus die Suche auf der Herstellerseite genauer machen; angezeigt
-werden sie in der Reihenfolge 1–4. Open Food Facts wird nirgends mehr abgefragt. Der Fortschritt steht live auf dem Scan-Bildschirm (`CheckProgress`), das Ergebnis jeder Quelle
-danach unter „So wurde geprüft“ (`CheckSteps`). Ein Fehler einer Quelle stoppt die Prüfung nicht und wird dort benannt.
+Sind auf dem Strichcode keine Ziffern lesbar, werden die von der Bild-KI (bzw. Texterkennung) gelesenen Ziffern nachgeschlagen.
+Der Fortschritt steht live auf dem Scan-Bildschirm (`CheckProgress`), das Ergebnis jeder Quelle danach unter „So wurde geprüft“
+(`CheckSteps`). Ein Fehler einer Quelle stoppt die Prüfung nicht und wird dort benannt.
 
 `runCheck` sammelt die Rohdaten (`CheckContext`) und ruft `assembleDraft` auf. „Hersteller-Website prüfen“ auf der Seite ruft
 `assembleDraft` mit der neuen Antwort erneut auf, ohne die Fotos nochmal zu lesen.
 
 ## Abgleich (`src/lib/reconcile.ts`)
-- **Angezeigte Liste:** gut lesbares Foto → Hersteller-Website (nachweislich dasselbe Produkt) →
+- **Angezeigte Liste:** gut lesbares Foto → Hersteller-Website (nachweislich dasselbe Produkt) → Open Food Facts →
   eigene Datenbank → Hersteller-Website (nicht eindeutig) → unsicheres Foto.
 - **Vergleich** (`ingredientsCompare.ts`): Zutaten ohne Klammern, Prozente, Endungen; kleine Tippfehler der Texterkennung
   zählen als gleich. Abweichungen erscheinen als Hinweis („Hersteller-Website nennt zusätzlich …“).
@@ -39,7 +40,7 @@ danach unter „So wurde geprüft“ (`CheckSteps`). Ein Fehler einer Quelle sto
 | **Produkt** | Produkt, Hersteller (Marke und Firma) und Barcode, jeweils mit der Quelle; „nicht erkannt“, wenn keine Quelle es kennt | `ProductSummary.tsx` |
 | **Zutaten** | Vollständige Aufzählung im Hinweiskasten-Design, mit Quelle und Abgleich-Ergebnis; Buttons „Zutaten korrigieren“ und „Hersteller-Website prüfen“; Haken für das Zertifizierungslogo | `IngredientsSection.tsx`, `ScanPage.tsx` |
 | **Hinweise** | Warnungen und Infos: Unterschiede zwischen Quellen, Spuren, Allergene, Labels, Aussagen der Hersteller-Website | `Notes.tsx` |
-| **So wurde geprüft** | Die vier Quellen und der Abgleich mit ihrem Ergebnis (nicht beim Bearbeiten eines gespeicherten Produkts) | `CheckSteps.tsx` |
+| **So wurde geprüft** | Die Quellen und der Abgleich mit ihrem Ergebnis (nicht beim Bearbeiten eines gespeicherten Produkts) | `CheckSteps.tsx` |
 | **Produkt bearbeiten** | Name, Hersteller/Marke, Barcode, eingeklappter Rohtext, Speichern/Abbrechen | `ScanPage.tsx` |
 
 ## Regeln
@@ -56,14 +57,14 @@ danach unter „So wurde geprüft“ (`CheckSteps`). Ein Fehler einer Quelle sto
 - **Häkchen:** Jeder beendete Prüfschritt zeigt ein ✓ (das Ergebnis steht im Text); nur ein Fehler zeigt ein ✗.
 - Eine unsichere Liste ergibt höchstens **Unbekannt**; gefundene Gluten-Wörter und Spurenhinweise zählen trotzdem. Hat der Nutzer die
   Zutaten korrigiert, gilt sie als verlässlich. Eine unsichere, nicht korrigierte Liste wird nicht als `ingredients_text` gespeichert.
-- **Produktangaben** stammen aus der eigenen Datenbank, der Hersteller-Website (Name nur bei nachweislich gleichem
-  Produkt) und der Verpackung (Firma). Sind alle leer, steht „nicht erkannt“ – nichts wird erfunden.
+- **Produktangaben** stammen aus der eigenen Datenbank, Open Food Facts, der Verpackung (Bild-KI) und der Hersteller-Website
+  (Name nur bei nachweislich gleichem Produkt). Sind alle leer, steht „nicht erkannt“ – nichts wird erfunden.
 
 ## Wichtige Dateien
 `ScanPage.tsx`, `IngredientsSection.tsx`, `ProductSummary.tsx`, `Notes.tsx`, `CheckSteps.tsx` (hier);
 `components/Verdict.tsx`, `components/CheckProgress.tsx`;
 `lib/runCheck.ts` (Ablauf, `assembleDraft`), `lib/reconcile.ts`, `lib/ingredientsCompare.ts`, `lib/labelText.ts`, `lib/classify.ts`,
-`lib/textClean.ts`, `lib/manufacturer.ts`, `api/product-info.ts`.
+`lib/textClean.ts`, `lib/manufacturer.ts`, `lib/openFoodFacts.ts`, `lib/labelReader.ts`, `api/product-info.ts`, `api/read-label.ts`.
 
 ## Tests
 `runCheck.test.ts` (Ablauf mit nachgestellten Quellen), `ingredientsCompare.test.ts`, `classify.test.ts`, `textClean.test.ts`.

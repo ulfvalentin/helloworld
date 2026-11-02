@@ -50,8 +50,8 @@ export type ProductInput = Omit<
 
 export type ConfirmationInput = Omit<ManufacturerConfirmation, 'id' | 'product_id' | 'created_at'>
 
-/** Die vier Quellen jeder Prüfung. */
-export type IngredientSource = 'foto' | 'datenbank' | 'hersteller'
+/** Die Quellen jeder Prüfung. */
+export type IngredientSource = 'foto' | 'datenbank' | 'hersteller' | 'openfoodfacts'
 export type SourceId = IngredientSource
 
 /** Woher stammt die Zutatenliste, und wie verlässlich ist sie? */

@@ -42,22 +42,24 @@ function deps(over: Partial<CheckDeps> = {}): CheckDeps {
     decodeBarcode: vi.fn().mockResolvedValue('4023900545644'),
     recognizeText: vi.fn().mockResolvedValue(GOOD_PHOTO),
     getByBarcode: vi.fn().mockResolvedValue(null),
+    lookupOpenFoodFacts: vi.fn().mockResolvedValue(null),
     lookupManufacturer: vi.fn().mockResolvedValue(manufacturer()),
     ...over,
   }
 }
 const photo = [new Blob(['x'])]
+const step = (d: { check: { steps: { source: string; summary: string; status: string }[] } }, source: string) => d.check.steps.find((s) => s.source === source)
 
 describe('runCheck', () => {
-  it('prüft immer alle drei Quellen und meldet jeden Schritt', async () => {
+  it('prüft immer alle Quellen und meldet jeden Schritt', async () => {
     const d = deps()
     const seen: ProgressStep[][] = []
     const draft = await runCheck(d, { files: photo, barcode: '' }, (s) => seen.push(s))
     expect(d.getByBarcode).toHaveBeenCalled()
     expect(d.lookupManufacturer).toHaveBeenCalled() // auch bei gut lesbarem Foto
-    expect(draft.check.steps.map((s) => s.source)).toEqual(['foto', 'hersteller', 'datenbank'])
+    expect(draft.check.steps.map((s) => s.source)).toEqual(['datenbank', 'foto', 'hersteller', 'openfoodfacts'])
     const last = seen[seen.length - 1]
-    expect(last.map((s) => s.id)).toEqual(['foto', 'hersteller', 'datenbank', 'abgleich'])
+    expect(last.map((s) => s.id)).toEqual(['datenbank', 'foto', 'hersteller', 'openfoodfacts', 'abgleich'])
     expect(last.every((s) => s.state === 'fertig')).toBe(true)
     expect(seen[0].every((s) => s.state === 'wartet')).toBe(true)
   })
@@ -104,7 +106,7 @@ describe('runCheck', () => {
     expect(draft.check.chosen).toBe('foto')
     expect(draft.ingredients.trusted).toBe(false)
     expect(draft.input.ingredients_text).toMatch(/Reismehl/)
-    expect(draft.check.steps[1]).toMatchObject({ source: 'hersteller', status: 'none', summary: 'nichts' })
+    expect(step(draft, 'hersteller')).toMatchObject({ source: 'hersteller', status: 'none', summary: 'nichts' })
   })
 
   it('Quellen widersprechen sich bei Gluten: Warnung, und die Einstufung ist unbekannt', async () => {
@@ -123,7 +125,7 @@ describe('runCheck', () => {
     const stored = { id: '1', name: 'Pad Thai', brand: 'BG', barcode: '4023900545644', ingredients_text: 'Reismehl, Maisstärke, Speisesalz', label_text: null, certified_label: false, certification_note: null, image_url: null, status: 'unverified_gluten_free', status_reasons: [], created_at: '', updated_at: '', confirmations: [] } as Product
     const draft = await runCheck(deps({ getByBarcode: vi.fn().mockResolvedValue(stored) }), { files: photo, barcode: '' })
     expect(draft.existing?.id).toBe('1')
-    expect(draft.check.steps[2]).toMatchObject({ source: 'datenbank', status: 'found' })
+    expect(step(draft, 'datenbank')).toMatchObject({ source: 'datenbank', status: 'found' })
     expect(draft.check.notes.map((n) => n.text).join(' ')).toMatch(/eure Datenbank weicht ab/)
     expect(draft.check.identity.from.brand).toBe('eure Datenbank')
   })
@@ -132,7 +134,7 @@ describe('runCheck', () => {
     const d = deps()
     const draft = await runCheck(d, { files: [], barcode: '4023900545644' })
     expect(d.recognizeText).not.toHaveBeenCalled()
-    expect(draft.check.steps[0]).toMatchObject({ source: 'foto', status: 'skipped' })
+    expect(step(draft, 'foto')).toMatchObject({ source: 'foto', status: 'skipped' })
     expect(draft.check.chosen).toBe('hersteller')
     expect(draft.check.identity.from.barcode).toBe('eingetippt')
   })
@@ -140,7 +142,7 @@ describe('runCheck', () => {
   it('Fehler einer Quelle stoppt die Prüfung nicht und wird benannt', async () => {
     const d = deps({ getByBarcode: vi.fn().mockRejectedValue(new Error('offline')), lookupManufacturer: vi.fn().mockResolvedValue(null) })
     const draft = await runCheck(d, { files: photo, barcode: '' })
-    expect(draft.check.steps[1]).toMatchObject({ source: 'hersteller', status: 'error' })
+    expect(step(draft, 'hersteller')).toMatchObject({ source: 'hersteller', status: 'error' })
     expect(draft.check.chosen).toBe('foto')
   })
 
@@ -153,6 +155,98 @@ describe('runCheck', () => {
     expect(draft.check.chosen).toBeNull()
     expect(draft.check.reconciliation.status).toBe('none')
     expect(draft.input.ingredients_text).toBeNull()
-    expect(draft.check.steps[1]).toMatchObject({ source: 'hersteller', status: 'skipped' })
+    expect(step(draft, 'hersteller')).toMatchObject({ source: 'hersteller', status: 'skipped' })
+  })
+
+  describe('neuer Ablauf: Barcode → Bild-KI → Hersteller → Open Food Facts', () => {
+    const bresso = {
+      source: 'openfoodfacts' as const,
+      barcode: '4000400008053',
+      name: 'Kräuter der Provence',
+      brand: 'Bresso',
+      company: null,
+      ingredientsText: 'Frischkäse, Crème Fraiche, Butter, Kräuter der Provence, Kräuter, Stärke, Gewürze, Speisesalz, natürliche Aromen, Stickstoff zum Aufschlagen.',
+      imageUrl: 'https://images.openfoodfacts.org/bresso.jpg',
+      link: null,
+      tags: ['allergens:en:milk', 'traces:en:celery'],
+    }
+    const reading = (over = {}) => ({
+      product_name: 'Bresso mit Kräutern aus der Provence',
+      brand: 'Bresso',
+      manufacturer: 'Hochland Deutschland GmbH, Heimenkirch',
+      barcode: '4000400008053',
+      ingredients: 'FRISCHKÄSE, CRÈME FRAÎCHE, BUTTER, Kräuter der Provence, Kräuter, Stärke, Gewürze, Speisesalz, natürliche Aromen, Stickstoff zum Aufschlagen',
+      traces: 'Kann Spuren von Sellerie enthalten.',
+      ingredients_complete: true,
+      unreadable: [],
+      websites: ['bresso.de'],
+      ...over,
+    })
+    const noMfr = vi.fn().mockResolvedValue({ ...manufacturer(), found: false, ingredients: null, message: 'nichts' })
+
+    it('Barcode zuerst: Produkt laut Open Food Facts, danach Suche auf der Herstellerseite mit Marke + Name', async () => {
+      const d = deps({ decodeBarcode: vi.fn().mockResolvedValue('4000400008053'), lookupOpenFoodFacts: vi.fn().mockResolvedValue(bresso), lookupManufacturer: noMfr })
+      const draft = await runCheck(d, { files: photo, barcode: '' })
+      expect(d.lookupOpenFoodFacts).toHaveBeenCalledWith('4000400008053')
+      expect(draft.check.identity).toMatchObject({ name: 'Kräuter der Provence', brand: 'Bresso', from: { name: 'Open Food Facts', brand: 'Open Food Facts' } })
+      expect(step(draft, 'datenbank')).toMatchObject({ status: 'found' })
+      expect(step(draft, 'datenbank')!.summary).toMatch(/Bresso – Kräuter der Provence \(laut Open Food Facts\)/)
+      expect(noMfr).toHaveBeenCalledWith(expect.objectContaining({ name: 'Kräuter der Provence', brand: 'Bresso' }))
+      const notes = draft.check.notes.map((n) => n.text).join(' ')
+      expect(notes).toMatch(/Spuren laut Open Food Facts: Sellerie/)
+    })
+
+    it('Bild-KI liest die Zutaten; die Texterkennung im Browser läuft dann nicht', async () => {
+      const readLabel = vi.fn().mockResolvedValue({ reading: reading() })
+      const d = deps({ readLabel, decodeBarcode: vi.fn().mockResolvedValue('4000400008053'), lookupOpenFoodFacts: vi.fn().mockResolvedValue(bresso), lookupManufacturer: noMfr })
+      const draft = await runCheck(d, { files: photo, barcode: '' })
+      expect(d.recognizeText).not.toHaveBeenCalled()
+      expect(draft.check.chosen).toBe('foto')
+      expect(draft.ingredients.trusted).toBe(true)
+      expect(draft.input.ingredients_text).toMatch(/^FRISCHKÄSE, CRÈME FRAÎCHE, BUTTER/)
+      expect(draft.input.ingredients_text).toMatch(/Kann Spuren von Sellerie enthalten/)
+      expect(step(draft, 'foto')!.summary).toMatch(/Bild-KI/)
+      // Open Food Facts nennt dieselben Zutaten: wird verglichen, nicht gewählt
+      expect(draft.check.lists.map((l) => l.source)).toContain('openfoodfacts')
+      expect(draft.check.reconciliation.status).toBe('consistent')
+    })
+
+    it('Bild-KI nicht verfügbar: Texterkennung im Browser als Ersatz', async () => {
+      const d = deps({ readLabel: vi.fn().mockResolvedValue({ reading: null, error: 'nicht eingerichtet' }) })
+      const draft = await runCheck(d, { files: photo, barcode: '' })
+      expect(d.recognizeText).toHaveBeenCalled()
+      expect(step(draft, 'foto')!.summary).toMatch(/Texterkennung im Browser/)
+    })
+
+    it('unsicher gelesene Stellen: Liste unsicher, Warnhinweis', async () => {
+      const d = deps({ readLabel: vi.fn().mockResolvedValue({ reading: reading({ ingredients_complete: false, unreadable: ['Wort nach „Stärke“'] }) }), lookupManufacturer: noMfr })
+      const draft = await runCheck(d, { files: photo, barcode: '' })
+      expect(draft.ingredients.trusted).toBe(false)
+      expect(draft.check.notes.find((n) => n.level === 'warn')?.text).toMatch(/nicht sicher lesbar: Wort nach „Stärke“/)
+    })
+
+    it('Strichcode unscharf: die von der Bild-KI gelesenen Ziffern werden nachgeschlagen', async () => {
+      const lookupOpenFoodFacts = vi.fn().mockResolvedValue(bresso)
+      const d = deps({ decodeBarcode: vi.fn().mockResolvedValue(null), readLabel: vi.fn().mockResolvedValue({ reading: reading() }), lookupOpenFoodFacts, lookupManufacturer: noMfr })
+      const draft = await runCheck(d, { files: photo, barcode: '' })
+      expect(lookupOpenFoodFacts).toHaveBeenCalledWith('4000400008053')
+      expect(draft.check.identity).toMatchObject({ barcode: '4000400008053', from: { barcode: 'Ziffern unter dem Strichcode' } })
+    })
+
+    it('ohne Foto-Zutaten und Herstellerseite: Zutaten laut Open Food Facts, gekennzeichnet', async () => {
+      const d = deps({ lookupOpenFoodFacts: vi.fn().mockResolvedValue(bresso), lookupManufacturer: noMfr })
+      const draft = await runCheck(d, { files: [], barcode: '4000400008053' })
+      expect(draft.check.chosen).toBe('openfoodfacts')
+      expect(draft.ingredients.source).toBe('openfoodfacts')
+      expect(step(draft, 'openfoodfacts')).toMatchObject({ status: 'found' })
+      expect(draft.input.image_url).toBe('https://images.openfoodfacts.org/bresso.jpg')
+    })
+
+    it('zweite Herstellerseite wird verglichen', async () => {
+      const mfr = manufacturer({ alternative: { url: 'https://haendler.de/pad-thai', title: 'Pad Thai', ingredients: 'Reismehl (91%), Tapiokamehl, Speisesalz' } })
+      const draft = await runCheck(deps({ lookupManufacturer: vi.fn().mockResolvedValue(mfr) }), { files: photo, barcode: '' })
+      expect(draft.check.notes.map((n) => n.text).join(' ')).toMatch(/zweite Seite \(haendler\.de\) nennt dieselben Zutaten/)
+      expect(draft.input.label_text).toMatch(/Quelle haendler\.de: Reismehl/)
+    })
   })
 })

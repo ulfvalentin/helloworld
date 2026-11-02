@@ -3,15 +3,13 @@
 // als Umgebungsvariable GITHUB_TOKEN (oder GITHUB_FEEDBACK) in Vercel (nie im Code). Ohne Token antwortet die Funktion mit 503,
 // die App meldet das dann als Fehler.
 
-/** Öffentliche Werte (stehen auch in .env.production); per Umgebungsvariable überschreibbar. */
-const SUPABASE_URL = process.env.SUPABASE_URL ?? 'https://jvjkvydixrwxmdhadxge.supabase.co'
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? 'sb_publishable_XFAKLhYRwJK-byA-VlDi8Q_XgcVTe-4'
+import { envMatching, json, verifyUser } from './_auth'
+
 const REPO = process.env.FEEDBACK_REPO ?? 'ulfvalentin/helloworld'
 
 /** GitHub-Token aus der Umgebung: `GITHUB_TOKEN` oder `GITHUB_FEEDBACK` (Groß-/Kleinschreibung egal). */
 export function githubToken(env: Record<string, string | undefined> = process.env): string | undefined {
-  const key = Object.keys(env).find((k) => /^github_(token|feedback)(_token)?$/i.test(k) && env[k]?.trim())
-  return key ? env[key]!.trim() : undefined
+  return envMatching(/^github_(token|feedback)(_token)?$/i, env)
 }
 
 export interface FeedbackRequest {
@@ -48,26 +46,13 @@ export function issueBody(
   return lines.filter((l, i) => l !== '' || i === 1).join('\n')
 }
 
-async function verifyUser(token: string): Promise<string | null | false> {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(6000),
-  }).catch(() => null)
-  if (!res?.ok) return false
-  const user = (await res.json().catch(() => null)) as { email?: string } | null
-  return user ? (user.email ?? null) : false
-}
-
-const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } })
-
 export default {
   async fetch(request: Request): Promise<Response> {
     if (request.method !== 'POST') return json({ ok: false, error: 'POST erwartet' }, 405)
     const ghToken = githubToken()
     if (!ghToken) return json({ ok: false, configured: false, error: 'GITHUB_TOKEN (oder GITHUB_FEEDBACK) ist in Vercel nicht gesetzt' }, 503)
 
-    const token = /^Bearer (.+)$/i.exec(request.headers.get('authorization') ?? '')?.[1]
-    const email = token ? await verifyUser(token) : false
+    const email = await verifyUser(request)
     if (email === false) return json({ ok: false, error: 'Nicht angemeldet' }, 401)
 
     const body = (await request.json().catch(() => null)) as Partial<FeedbackRequest> | null
