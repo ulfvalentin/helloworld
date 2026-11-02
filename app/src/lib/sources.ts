@@ -5,4 +5,5 @@ export const SOURCE_NAME: Record<SourceId, string> = {
   foto: 'Foto',
   hersteller: 'Hersteller-Website',
   datenbank: 'eure Datenbank',
+  openfoodfacts: 'Open Food Facts',
 }

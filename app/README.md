@@ -54,17 +54,19 @@ Nützliche Views:
 
 ## So läuft eine Prüfung
 
-Jede Prüfung durchläuft drei Quellen und gleicht sie ab (Details: [`src/features/scan-page/FEATURE.md`](src/features/scan-page/FEATURE.md)):
+Jede Prüfung läuft in fünf Schritten (Details: [`src/features/scan-page/FEATURE.md`](src/features/scan-page/FEATURE.md)):
 
-1. **Fotos prüfen** – Barcode und Text lesen; die Texterkennung liefert pro Wort eine Sicherheit, der Zutatenblock wird bis zur
-   Nährwerttabelle herausgeschnitten (`src/lib/textClean.ts`)
-2. **Herstellerseite** – `api/product-info.ts` (Vercel-Funktion, weil der Browser fremde Websites nicht lesen darf) probiert
-   Webadressen von der Packung und die vermutete Hersteller-Domain, blättert durch
-   Produktübersichten und sucht notfalls im Web. Eine Seite zählt nur, wenn sie zum Produkt passt (Barcode, Name oder
-   übereinstimmende Zutatenwörter). Die Funktion ruft nur öffentliche http(s)-Adressen ab
-3. **Eigene Datenbank** – ist das Produkt schon gespeichert? Hat sich die Rezeptur geändert?
-4. **Abgleich** – die Zutatenlisten werden verglichen, Unterschiede erscheinen als Hinweise; nennt eine Quelle Gluten-Getreide,
-   das anderswo fehlt, gibt es eine Warnung und die Einstufung beachtet es
+1. **Barcode → Produkt** – eindeutige Bezeichnung aus der eigenen Datenbank, sonst aus Open Food Facts (gekennzeichnet)
+2. **Zutaten vom Foto** – `api/read-label.ts` (Vercel-Funktion) lässt die Fotos von Claude lesen; ohne Schlüssel oder bei Fehlern
+   liest die Texterkennung im Browser (`src/lib/ocr.ts`, `src/lib/textClean.ts`)
+3. **Hersteller- und Markenseite** – `api/product-info.ts` sucht nach Marke + Produktname auf Hersteller-, Marken- und
+   Händlerseiten; eine Seite zählt nur, wenn sie zum Produkt passt (Barcode, Name oder Zutatenwörter). Nur öffentliche http(s)-Adressen
+4. **Open Food Facts** – Zutaten, Allergene, Spuren als Ergänzung, immer als „laut Open Food Facts“ gekennzeichnet
+5. **Abgleich** – die Zutatenlisten werden verglichen, Unterschiede erscheinen als Hinweise; nennt eine Quelle Gluten-Getreide,
+   das anderswo fehlt, gibt es eine Warnung und die Einstufung lautet „Unbekannt“
+
+**Bild-KI einrichten:** In Vercel (Projekt „app“) die Umgebungsvariable `ANTHROPIC_API_KEY` setzen (Production und Preview).
+Der Schlüssel bleibt auf dem Server; ohne ihn funktioniert alles weiter mit der Texterkennung im Browser.
 
 Auf der Scan-Seite stehen Produkt, Hersteller und Barcode (mit Quelle), die vollständige Zutatenliste, die Hinweise und das
 Ergebnis jedes Schritts. Eine „glutenfrei“-Aussage der Hersteller-Website ergibt nur „Keine glutenhaltigen Zutaten“ – „Sicher
