@@ -110,7 +110,13 @@ const mfrListOf = (m: ManufacturerResult | null) =>
 
 function reportPhoto(c: CheckContext): StepReport {
   if (c.fileCount === 0) return { source: 'foto', status: 'skipped', summary: 'Kein Foto – nur der Barcode wurde eingegeben.' }
-  const how = c.reader === 'ki' ? ' (Bild-KI)' : c.reader === 'texterkennung' ? ' (Texterkennung im Browser)' : ''
+  // Warum die Bild-KI nicht lief, steht dabei – sonst ist ein schlechtes Ergebnis nicht nachvollziehbar
+  const how =
+    c.reader === 'ki'
+      ? ' (Bild-KI)'
+      : c.reader === 'texterkennung'
+        ? ` (Texterkennung im Browser${c.readError ? ` – Bild-KI nicht verfügbar: ${c.readError}` : ''})`
+        : ''
   if (!c.photoList) return { source: 'foto', status: 'none', summary: `Auf den Fotos wurde keine Zutatenliste erkannt${how}.` }
   const good = c.photoList.quality === 'gut'
   return { source: 'foto', status: 'found', summary: `${c.photoList.items.length} Zutaten gelesen${good ? '' : ' – nicht alles sicher lesbar'}${how}.` }

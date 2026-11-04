@@ -227,7 +227,7 @@ describe('runCheck', () => {
       const d = deps({ readLabel: vi.fn().mockResolvedValue({ reading: null, error: 'nicht eingerichtet' }) })
       const draft = await runCheck(d, { files: photo, barcode: '' })
       expect(d.recognizeText).toHaveBeenCalled()
-      expect(step(draft, 'foto')!.summary).toMatch(/Texterkennung im Browser/)
+      expect(step(draft, 'foto')!.summary).toMatch(/Texterkennung im Browser – Bild-KI nicht verfügbar: nicht eingerichtet/)
     })
 
     it('unsicher gelesene Stellen: Liste unsicher, Warnhinweis', async () => {

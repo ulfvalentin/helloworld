@@ -99,7 +99,15 @@ function geminiSchema(schema: Record<string, unknown>): Record<string, unknown> 
   return out
 }
 
-const GEMINI_MODELS = () => [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash'].filter((m): m is string => Boolean(m))
+// Mehrere Modelle nacheinander: Jedes hat im kostenlosen Kontingent eigene Tageslimits, und Modellnamen ändern sich.
+const GEMINI_MODELS = () =>
+  [
+    ...new Set(
+      [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'].filter(
+        (m): m is string => Boolean(m),
+      ),
+    ),
+  ]
 
 async function readWithGemini(images: ImageInput[], apiKey: string): Promise<Outcome> {
   const request = {
@@ -116,21 +124,33 @@ async function readWithGemini(images: ImageInput[], apiKey: string): Promise<Out
       responseSchema: geminiSchema(SCHEMA as unknown as Record<string, unknown>),
     },
   }
+  let last: Outcome = { status: 503, body: { ok: false, error: 'Kein passendes Gemini-Modell gefunden (GEMINI_MODEL prüfen)' } }
   for (const model of GEMINI_MODELS()) {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(50000),
-    }).catch(() => null)
-    if (!res) return { status: 502, body: { ok: false, error: 'Bild-KI nicht erreichbar' } }
-    if (res.status === 404) continue // Modellname unbekannt – nächsten versuchen
-    if (res.status === 429) return { status: 429, body: { ok: false, error: 'Kostenloses Gemini-Kontingent gerade erschöpft' } }
-    if (res.status === 400 || res.status === 401 || res.status === 403) {
-      const detail = ((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message
-      return { status: 503, body: { ok: false, error: `Gemini lehnt die Anfrage ab (${res.status}${detail ? `: ${detail.slice(0, 120)}` : ''})` } }
+      signal: AbortSignal.timeout(45000),
+    }).catch((e: unknown) => {
+      console.error(`Gemini ${model}: keine Antwort`, e)
+      return null
+    })
+    if (!res) {
+      last = { status: 502, body: { ok: false, error: `Gemini (${model}) hat nicht rechtzeitig geantwortet` } }
+      continue
     }
-    if (!res.ok) return { status: 502, body: { ok: false, error: `Bild-KI nicht verfügbar (${res.status})` } }
+    if (!res.ok) {
+      const detail = ((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? ''
+      console.error(`Gemini ${model}: ${res.status} ${detail}`)
+      if (res.status === 401 || res.status === 403)
+        return { status: 503, body: { ok: false, error: `Gemini-Schlüssel abgelehnt (${res.status}: ${detail.slice(0, 120)})` } }
+      // 404 Modell unbekannt, 429 Kontingent erschöpft, 400/5xx: nächstes Modell versuchen
+      last = {
+        status: res.status === 429 ? 429 : 502,
+        body: { ok: false, error: `Gemini (${model}): ${res.status === 429 ? 'kostenloses Kontingent erschöpft' : `Fehler ${res.status}`}${detail ? ` – ${detail.slice(0, 120)}` : ''}` },
+      }
+      continue
+    }
     const data = (await res.json().catch(() => null)) as {
       candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[]
     } | null
@@ -141,10 +161,30 @@ async function readWithGemini(images: ImageInput[], apiKey: string): Promise<Out
     } catch {
       reading = null
     }
-    if (!isValidReading(reading)) return { status: 502, body: { ok: false, error: 'Unerwartete Antwort der Bild-KI' } }
+    if (!isValidReading(reading)) {
+      console.error(`Gemini ${model}: unerwartete Antwort`, data?.candidates?.[0]?.finishReason, text?.slice(0, 300))
+      last = { status: 502, body: { ok: false, error: `Gemini (${model}): unerwartete Antwort (${data?.candidates?.[0]?.finishReason ?? 'leer'})` } }
+      continue
+    }
     return { status: 200, body: { ok: true, reading, model } }
   }
-  return { status: 503, body: { ok: false, error: 'Kein passendes Gemini-Modell gefunden (GEMINI_MODEL prüfen)' } }
+  return last
+}
+
+/** Diagnose ohne Fotos (GET): Welche Bild-KI ist eingerichtet, und welche Gemini-Modelle bietet der Schlüssel an? */
+async function diagnose(): Promise<Response> {
+  const gemini = geminiKey()
+  if (!gemini) return json({ provider: envMatching(/^anthropic(_api)?_key$/i) ? 'claude' : null })
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
+    headers: { 'x-goog-api-key': gemini },
+    signal: AbortSignal.timeout(10000),
+  }).catch(() => null)
+  if (!res?.ok) return json({ provider: 'gemini', keyValid: false, status: res?.status ?? null })
+  const data = (await res.json().catch(() => null)) as { models?: { name: string; supportedGenerationMethods?: string[] }[] } | null
+  const available = (data?.models ?? [])
+    .filter((m) => m.supportedGenerationMethods?.includes('generateContent') && /flash/.test(m.name))
+    .map((m) => m.name.replace(/^models\//, ''))
+  return json({ provider: 'gemini', keyValid: true, tried: GEMINI_MODELS(), available })
 }
 
 async function readWithClaude(images: ImageInput[], apiKey: string): Promise<Outcome> {
@@ -189,6 +229,7 @@ export function geminiKey(env: Record<string, string | undefined> = process.env)
 
 export default {
   async fetch(request: Request): Promise<Response> {
+    if (request.method === 'GET') return diagnose()
     if (request.method !== 'POST') return json({ ok: false, error: 'POST erwartet' }, 405)
     const gemini = geminiKey()
     const anthropic = envMatching(/^anthropic(_api)?_key$/i)
