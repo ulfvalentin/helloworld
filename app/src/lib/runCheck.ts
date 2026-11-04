@@ -106,7 +106,7 @@ export interface CheckContext {
 }
 
 const mfrListOf = (m: ManufacturerResult | null) =>
-  m?.found && m.ingredients ? listOf('hersteller', m.ingredients, { url: m.sourceUrl, exact: m.exact }) : null
+  m?.found && m.ingredients ? listOf('hersteller', m.ingredients, { url: m.sourceUrl, exact: m.exact, retailer: m.source === 'haendler' }) : null
 
 function reportPhoto(c: CheckContext): StepReport {
   if (c.fileCount === 0) return { source: 'foto', status: 'skipped', summary: 'Kein Foto – nur der Barcode wurde eingegeben.' }
@@ -174,14 +174,15 @@ export function assembleDraft(c: CheckContext, override: { name?: string | null;
   const { external, reading } = c
   if (override.name) [identity.name, from.name] = [override.name, 'eingegeben']
   else if (existing?.name) [identity.name, from.name] = [existing.name, SOURCE_NAME.datenbank]
-  else if (external?.name) [identity.name, from.name] = [external.name, SOURCE_NAME.openfoodfacts]
+  // Die Verpackung hat Vorrang vor Open Food Facts (Rangfolge: Hersteller, Verpackung, dann weitere Quellen)
   else if (reading?.product_name) [identity.name, from.name] = [reading.product_name, 'Verpackung']
+  else if (external?.name) [identity.name, from.name] = [external.name, SOURCE_NAME.openfoodfacts]
   if (override.brand) [identity.brand, from.brand] = [override.brand, 'eingegeben']
   else if (existing?.brand) [identity.brand, from.brand] = [existing.brand, SOURCE_NAME.datenbank]
-  else if (external?.brand) [identity.brand, from.brand] = [external.brand, SOURCE_NAME.openfoodfacts]
   else if (reading?.brand) [identity.brand, from.brand] = [reading.brand, 'Verpackung']
-  if (external?.company) [identity.company, from.company] = [external.company, SOURCE_NAME.openfoodfacts]
-  else if (reading?.manufacturer) [identity.company, from.company] = [reading.manufacturer, 'Verpackung']
+  else if (external?.brand) [identity.brand, from.brand] = [external.brand, SOURCE_NAME.openfoodfacts]
+  if (reading?.manufacturer) [identity.company, from.company] = [reading.manufacturer, 'Verpackung']
+  else if (external?.company) [identity.company, from.company] = [external.company, SOURCE_NAME.openfoodfacts]
   else if (c.photoCompany) [identity.company, from.company] = [c.photoCompany, 'Verpackung']
   const mfrList = mfrListOf(manufacturer)
   if (!identity.name && mfrList?.exact && manufacturer?.title && manufacturer.title.length <= 80)
@@ -198,6 +199,17 @@ export function assembleDraft(c: CheckContext, override: { name?: string | null;
     const traces = findTraceStatements(normalizeText(c.ocrText)).statements
     if (traces.length) notes.push({ level: 'info', text: `Spurenhinweis auf der Verpackung: ${sentence(traces.join('; '))}.` })
   }
+  // Glutenfrei-Logo: mit lesbarer Lizenznummer gilt es als erkannt (Haken gesetzt, abwählbar), ohne nur als Hinweis
+  const logoLicense = reading?.gluten_free_logo ? reading.logo_license.trim() : ''
+  const logoConfirmed = Boolean(reading?.gluten_free_logo && logoLicense)
+  if (logoConfirmed)
+    notes.push({ level: 'info', text: `Glutenfrei-Logo auf dem Foto erkannt (Lizenz ${logoLicense}) – bitte kurz mit der Packung vergleichen.` })
+  else if (reading?.gluten_free_logo)
+    notes.push({
+      level: 'warn',
+      text: 'Auf dem Foto ist vermutlich das Glutenfrei-Logo, die Lizenznummer war aber nicht lesbar. Bitte auf der Packung prüfen und unten den Haken setzen.',
+    })
+  if (reading?.gluten_free_claim) notes.push({ level: 'info', text: `Aufdruck auf der Packung: „${reading.gluten_free_claim}“.` })
   if (reading?.unreadable.length)
     notes.push({ level: 'warn', text: `Auf dem Foto nicht sicher lesbar: ${reading.unreadable.join('; ')} – bitte auf der Packung prüfen.` })
   notes.push(...result.notes)
@@ -245,6 +257,8 @@ export function assembleDraft(c: CheckContext, override: { name?: string | null;
       ]
         .filter(Boolean)
         .join('\n') || null,
+    certified_label: existing?.certified_label || logoConfirmed,
+    certification_note: existing?.certification_note ?? (logoConfirmed ? `Lizenz ${logoLicense} (auf dem Foto erkannt)` : null),
     image_url: existing?.image_url ?? (manufacturer?.exact ? manufacturer.imageUrl : null) ?? external?.imageUrl ?? null,
   }
   const reports = [reportDb(c), reportPhoto(c), reportMfr(c), reportOff(c)]

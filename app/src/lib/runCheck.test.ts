@@ -64,10 +64,10 @@ describe('runCheck', () => {
     expect(seen[0].every((s) => s.state === 'wartet')).toBe(true)
   })
 
-  it('stimmen alle Quellen überein: Liste vom Foto, Abgleich „consistent“', async () => {
+  it('stimmen alle Quellen überein: Liste des Herstellers (Rang 1), Abgleich „consistent“', async () => {
     const draft = await runCheck(deps(), { files: photo, barcode: '' })
     expect(draft.check.reconciliation.status).toBe('consistent')
-    expect(draft.check.chosen).toBe('foto')
+    expect(draft.check.chosen).toBe('hersteller')
     expect(draft.input.ingredients_text).toBe('Reismehl (91%), Tapiokamehl, Speisesalz')
     expect(draft.ingredients.trusted).toBe(true)
     expect(draft.check.lists.map((l) => l.source)).toEqual(['foto', 'hersteller'])
@@ -109,16 +109,25 @@ describe('runCheck', () => {
     expect(step(draft, 'hersteller')).toMatchObject({ source: 'hersteller', status: 'none', summary: 'nichts' })
   })
 
-  it('Quellen widersprechen sich bei Gluten: Warnung, und die Einstufung ist unbekannt', async () => {
+  it('Herstellerseite nennt Weizen, Verpackung nicht: Herstellerliste gewinnt → enthält Gluten', async () => {
     const d = deps({ lookupManufacturer: vi.fn().mockResolvedValue(manufacturer({ ingredients: 'Weizenmehl, Speisesalz' })) })
     const draft = await runCheck(d, { files: photo, barcode: '' })
-    const warn = draft.check.notes.filter((n) => n.level === 'warn').map((n) => n.text).join(' ')
-    expect(warn).toMatch(/Hersteller-Website nennt Weizen/)
+    expect(draft.check.chosen).toBe('hersteller')
     expect(draft.check.reconciliation.status).toBe('differs')
-    expect(draft.input.label_text).toMatch(/Quelle Hersteller-Website: Weizenmehl, Speisesalz/)
+    expect(draft.check.notes.filter((n) => n.level === 'warn').map((n) => n.text).join(' ')).toMatch(/Weizen/)
+    const r = classify({ ingredientsText: draft.input.ingredients_text, labelText: draft.input.label_text, now: new Date('2026-10-29') })
+    expect(r.status).toBe('contains_gluten')
+  })
+
+  it('Verpackung nennt Weizen, Herstellerseite nicht: Widerspruch → unbekannt', async () => {
+    const wheatPhoto = ocr('Zutaten:(95)', 'Reismehl(96) (91%),(93) Weizenmehl,(94)', 'Speisesalz.(94)')
+    const d = deps({ recognizeText: vi.fn().mockResolvedValue(wheatPhoto) })
+    const draft = await runCheck(d, { files: photo, barcode: '' })
+    expect(draft.check.chosen).toBe('hersteller')
+    expect(draft.input.label_text).toMatch(/Quelle Foto: Reismehl \(91%\), Weizenmehl, Speisesalz/)
     const r = classify({ ingredientsText: draft.input.ingredients_text, labelText: draft.input.label_text, now: new Date('2026-10-29') })
     expect(r.status).toBe('unknown')
-    expect(r.glutenFindings).toContainEqual({ word: 'Weizenmehl', cereal: 'Weizen', where: 'quelle', source: 'Hersteller-Website' })
+    expect(r.glutenFindings).toContainEqual({ word: 'Weizenmehl', cereal: 'Weizen', where: 'quelle', source: 'Foto' })
   })
 
   it('vergleicht mit der eigenen Datenbank und meldet eine geänderte Rezeptur', async () => {
@@ -180,6 +189,9 @@ describe('runCheck', () => {
       ingredients_complete: true,
       unreadable: [],
       websites: ['bresso.de'],
+      gluten_free_logo: false,
+      logo_license: '',
+      gluten_free_claim: '',
       ...over,
     })
     const noMfr = vi.fn().mockResolvedValue({ ...manufacturer(), found: false, ingredients: null, message: 'nichts' })
@@ -247,6 +259,29 @@ describe('runCheck', () => {
       const draft = await runCheck(deps({ lookupManufacturer: vi.fn().mockResolvedValue(mfr) }), { files: photo, barcode: '' })
       expect(draft.check.notes.map((n) => n.text).join(' ')).toMatch(/zweite Seite \(haendler\.de\) nennt dieselben Zutaten/)
       expect(draft.input.label_text).toMatch(/Quelle haendler\.de: Reismehl/)
+    })
+
+    it('Glutenfrei-Logo mit Lizenznummer: Haken gesetzt, Hinweis', async () => {
+      const d = deps({ readLabel: vi.fn().mockResolvedValue({ reading: reading({ gluten_free_logo: true, logo_license: 'DE-020-012' }) }), lookupManufacturer: noMfr })
+      const draft = await runCheck(d, { files: photo, barcode: '' })
+      expect(draft.input.certified_label).toBe(true)
+      expect(draft.input.certification_note).toBe('Lizenz DE-020-012 (auf dem Foto erkannt)')
+      expect(draft.check.notes.map((n) => n.text).join(' ')).toMatch(/Glutenfrei-Logo auf dem Foto erkannt \(Lizenz DE-020-012\)/)
+      const r = classify({ ingredientsText: draft.input.ingredients_text, labelText: draft.input.label_text, certifiedLabel: draft.input.certified_label, now: new Date('2026-10-29') })
+      expect(r.status).toBe('verified_gluten_free')
+    })
+
+    it('Logo ohne lesbare Lizenz: kein Haken, Warnhinweis zum Prüfen', async () => {
+      const d = deps({ readLabel: vi.fn().mockResolvedValue({ reading: reading({ gluten_free_logo: true, logo_license: '' }) }), lookupManufacturer: noMfr })
+      const draft = await runCheck(d, { files: photo, barcode: '' })
+      expect(draft.input.certified_label).toBe(false)
+      expect(draft.check.notes.find((n) => n.level === 'warn')?.text).toMatch(/vermutlich das Glutenfrei-Logo/)
+    })
+
+    it('Verpackung vor Open Food Facts bei Name und Marke', async () => {
+      const d = deps({ readLabel: vi.fn().mockResolvedValue({ reading: reading() }), lookupOpenFoodFacts: vi.fn().mockResolvedValue(bresso), lookupManufacturer: noMfr })
+      const draft = await runCheck(d, { files: photo, barcode: '' })
+      expect(draft.check.identity).toMatchObject({ name: 'Bresso mit Kräutern aus der Provence', from: { name: 'Verpackung', brand: 'Verpackung' } })
     })
   })
 })

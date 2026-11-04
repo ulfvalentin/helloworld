@@ -24,8 +24,12 @@ Der Fortschritt steht live auf dem Scan-Bildschirm (`CheckProgress`), das Ergebn
 `assembleDraft` mit der neuen Antwort erneut auf, ohne die Fotos nochmal zu lesen.
 
 ## Abgleich (`src/lib/reconcile.ts`)
-- **Angezeigte Liste:** gut lesbares Foto → Hersteller-Website (nachweislich dasselbe Produkt) → Open Food Facts →
-  eigene Datenbank → Hersteller-Website (nicht eindeutig) → unsicheres Foto.
+- **Rangfolge der Quellen (Vorgabe):** 1. Erklärung des Herstellers – Bestätigung per E-Mail (macht „Sicher glutenfrei“) und
+  Hersteller-Website (nachweislich dasselbe Produkt), 2. **Verpackung** (gut gelesenes Foto, auch Name/Marke), dann Händlerseite,
+  Open Food Facts, eure Datenbank; nicht eindeutige Herstellerseite und unsicheres Foto zuletzt. Nennt eine nicht gewählte
+  Liste (auch die Verpackung) Gluten, lautet die Einstufung „Unbekannt“.
+- **Glutenfrei-Logo:** Die Bild-KI sucht gezielt nach der durchgestrichenen Ähre samt Lizenznummer. Mit lesbarer Nummer ist der
+  Haken „Zertifizierungslogo“ gesetzt (abwählbar) und die Nummer steht als Notiz; ohne Nummer gibt es nur einen Hinweis zum Prüfen.
 - **Vergleich** (`ingredientsCompare.ts`): Zutaten ohne Klammern, Prozente, Endungen; kleine Tippfehler der Texterkennung
   zählen als gleich. Abweichungen erscheinen als Hinweis („Hersteller-Website nennt zusätzlich …“).
 - **Gluten:** Nennt eine Quelle Gluten-Getreide, das in der angezeigten Liste fehlt, gibt es eine Warnung, und die Einstufung
@@ -52,7 +56,7 @@ Der Fortschritt steht live auf dem Scan-Bildschirm (`CheckProgress`), das Ergebn
 - **Gluten-Schluss nur aus der Zutatenliste:** Verpackungstext, Werbeaussagen („glutenfrei“), Zubereitung und Open-Food-Facts-Tags
   entscheiden nichts (sie erscheinen unter „Hinweise“). Spuren zählen nur, wenn sie in der Zutatenliste stehen. Nennt die Liste einer
   anderen Quelle Gluten, die gewählte aber nicht, lautet die Einstufung **Unbekannt** mit Hinweis auf den Widerspruch.
-- **Weitere Fotos:** Fehlt die Zutatenliste oder ist sie unsicher gelesen, erscheint „Weitere Fotos hinzufügen“. Die Prüfung läuft mit
+- **Fotos hinzufügen:** immer möglich (auch nach einem reinen Barcode-Scan); fehlt die Zutatenliste oder ist sie unsicher gelesen, steht der Kasten „Weitere Fotos hinzufügen“ oben. Die Prüfung läuft mit
   allen bisherigen und den neuen Fotos erneut (bereits gelesene Fotos werden nicht neu gelesen); eingegebene Angaben bleiben.
 - **Häkchen:** Jeder beendete Prüfschritt zeigt ein ✓ (das Ergebnis steht im Text); nur ein Fehler zeigt ein ✗.
 - Eine unsichere Liste ergibt höchstens **Unbekannt**; gefundene Gluten-Wörter und Spurenhinweise zählen trotzdem. Hat der Nutzer die

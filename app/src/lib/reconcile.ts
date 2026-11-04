@@ -4,16 +4,18 @@ import { compareLists } from './ingredientsCompare'
 import { SOURCE_NAME } from './sources'
 
 /**
- * Welche Liste wird angezeigt? Ein gut lesbares Foto zeigt die aktuelle Packung und gewinnt (Rezepturen ändern sich),
- * dann die Hersteller-Website (nachweislich dasselbe Produkt), Open Food Facts, die eigene Datenbank. Ein
- * unsicher gelesenes Foto ist nur die letzte Notlösung.
+ * Welche Liste wird angezeigt? Rangfolge (Vorgabe): 1. Angaben des Herstellers selbst (Hersteller-Website, nachweislich
+ * dasselbe Produkt), 2. die Verpackung (gut lesbares Foto), dann Open Food Facts und eure Datenbank. Eine nur ähnliche
+ * Herstellerseite und ein unsicher gelesenes Foto sind Notlösungen. Bestätigungen des Herstellers (E-Mail) stehen über
+ * allem, wirken aber auf die Einstufung, nicht auf die Liste (classify).
  */
 function priority(l: SourceList): number {
   switch (l.source) {
     case 'foto':
       return l.quality === 'gut' ? 4 : 1
     case 'hersteller':
-      return l.exact === false ? 2.2 : 3.5
+      // Händlerseiten sind nicht der Hersteller selbst: hinter der Verpackung einordnen
+      return l.exact === false ? 2.2 : l.retailer ? 3.5 : 4.5
     case 'openfoodfacts':
       return 3
     case 'datenbank':

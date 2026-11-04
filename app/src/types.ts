@@ -77,6 +77,8 @@ export interface SourceList {
   url?: string | null
   /** Hersteller-Website: false, wenn nicht nachweislich dasselbe Produkt */
   exact?: boolean
+  /** Angaben stammen von einer Händler- statt der Herstellerseite */
+  retailer?: boolean
 }
 
 /** Was eine Quelle bei der Prüfung ergeben hat. */

@@ -19,7 +19,9 @@ export function buildLabelText(o: {
   if (o.ocrText) parts.push(o.ocrText)
   for (const l of o.lists) {
     // Die eigene Datenbank gehört nicht dazu: Sie enthält alte Stände und würde eine geänderte Rezeptur dauerhaft belasten.
-    if (l.source === 'foto' || l.source === 'datenbank' || l.source === o.chosen || l.items.length === 0) continue
+    // Die Foto-Liste steht als eigene Zeile drin, wenn eine andere Liste gewählt wurde: Nennt die Verpackung Gluten,
+    // muss das die Einstufung erreichen.
+    if (l.source === 'datenbank' || l.source === o.chosen || l.items.length === 0) continue
     parts.push(`Quelle ${SOURCE_NAME[l.source]}: ${l.text.replace(/\s+/g, ' ').trim()}`)
   }
   for (const s of o.statements) parts.push(`Hersteller-Website: ${s}`)

@@ -59,6 +59,30 @@ export function ScanPage({
   )
   // Wurden weder Zutaten noch ein verlässlicher Text erkannt, lassen sich weitere Fotos nachreichen
   const needsMorePhotos = Boolean(onAddPhotos) && !context.edit && (!input.ingredients_text || !reliable)
+  // Fotos lassen sich immer nachreichen (z. B. nach einem reinen Barcode-Scan); fehlt die Zutatenliste, steht der Kasten oben
+  const canAddPhotos = Boolean(onAddPhotos) && !context.edit
+  const photoCard = canAddPhotos && (
+    <div className="card stack" aria-label="Fotos hinzufügen">
+      <h3>{needsMorePhotos ? 'Weitere Fotos hinzufügen' : 'Fotos hinzufügen'}</h3>
+      {needsMorePhotos ? (
+        <ul>
+          <li>{input.ingredients_text ? 'Die Zutatenliste war schwer lesbar.' : 'Es wurde keine Zutatenliste erkannt.'}</li>
+          <li>Zutatenliste einzeln, aus der Nähe, gerade und scharf fotografieren.</li>
+          <li>Die bisherigen Fotos bleiben erhalten.</li>
+        </ul>
+      ) : (
+        <p className="muted small">
+          Fotografiere zum Beispiel die Zutatenliste oder das Glutenfrei-Logo – die Prüfung läuft dann mit allen Fotos neu.
+        </p>
+      )}
+      <PhotoButtons
+        disabled={Boolean(steps)}
+        onPick={(files) => onAddPhotos!(files, { barcode: input.barcode, name: input.name, brand: input.brand })}
+      />
+      {steps && <CheckProgress steps={steps} />}
+      {checkError && <p className="error">{checkError}</p>}
+    </div>
+  )
   const set = <K extends keyof ProductInput>(key: K, value: ProductInput[K]) =>
     setInput((prev) => ({ ...prev, [key]: value }))
 
@@ -118,28 +142,7 @@ export function ScanPage({
       <Verdict result={result} onClose={onCancel} />
       <ProductSummary input={input} identity={check.identity} />
 
-      {needsMorePhotos && (
-        <div className="card stack">
-          <h3>Weitere Fotos hinzufügen</h3>
-          <ul>
-            <li>
-              {input.ingredients_text
-                ? 'Die Zutatenliste war schwer lesbar.'
-                : 'Es wurde keine Zutatenliste erkannt.'}
-            </li>
-            <li>Zutatenliste einzeln, aus der Nähe, gerade und scharf fotografieren.</li>
-            <li>Die bisherigen Fotos bleiben erhalten.</li>
-          </ul>
-          <PhotoButtons
-            disabled={Boolean(steps)}
-            onPick={(files) =>
-              onAddPhotos!(files, { barcode: input.barcode, name: input.name, brand: input.brand })
-            }
-          />
-          {steps && <CheckProgress steps={steps} />}
-          {checkError && <p className="error">{checkError}</p>}
-        </div>
-      )}
+      {needsMorePhotos && photoCard}
 
       <div className="card stack">
         <h3>Zutaten</h3>
@@ -211,6 +214,7 @@ export function ScanPage({
         )}
       </div>
 
+      {!needsMorePhotos && photoCard}
       <Notes notes={check.notes} />
       {!context.edit && <CheckSteps check={check} />}
 
