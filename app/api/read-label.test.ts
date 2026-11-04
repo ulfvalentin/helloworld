@@ -40,7 +40,7 @@ describe('POST /api/read-label (Gemini)', () => {
     const f = stub(() => Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(reading) }] } }] }))
     const res = await handler.fetch(post({ images: [photo] }))
     expect(res.status).toBe(200)
-    expect((await res.json()).reading).toEqual(reading)
+    expect((await res.json()).reading).toEqual({ ...reading, gluten_free_logo: false, logo_license: '', gluten_free_claim: '' })
     const call = f.mock.calls.find((c) => String(c[0]).includes('generativelanguage'))!
     expect(String(call[0])).toContain('gemini-flash-latest:generateContent')
     const sent = JSON.parse(call[1]!.body as string)

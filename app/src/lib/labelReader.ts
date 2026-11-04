@@ -11,6 +11,12 @@ export interface LabelReading {
   ingredients_complete: boolean
   unreadable: string[]
   websites: string[]
+  /** Offizielles Glutenfrei-Logo (durchgestrichene Ähre) gesehen */
+  gluten_free_logo: boolean
+  /** Lizenznummer am Logo, z. B. „DE-020-012“ */
+  logo_license: string
+  /** Aufdruck wie „glutenfrei“ */
+  gluten_free_claim: string
 }
 
 /** `reading: null` → die App liest selbst (Texterkennung im Browser); `error` erklärt, warum. */

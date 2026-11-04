@@ -17,6 +17,12 @@ export interface LabelReading {
   ingredients_complete: boolean
   unreadable: string[]
   websites: string[]
+  /** Offizielles Glutenfrei-Logo (durchgestrichene Ähre) auf den Fotos zu sehen */
+  gluten_free_logo: boolean
+  /** Lizenznummer am Logo (z. B. „DE-020-012“), sonst leer */
+  logo_license: string
+  /** Aufdruck wie „glutenfrei“, sonst leer */
+  gluten_free_claim: string
 }
 
 const MAX_IMAGES = 4
@@ -26,7 +32,7 @@ const MODEL = 'claude-opus-5-5'
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['product_name', 'brand', 'manufacturer', 'barcode', 'ingredients', 'traces', 'ingredients_complete', 'unreadable', 'websites'],
+  required: ['product_name', 'brand', 'manufacturer', 'barcode', 'ingredients', 'traces', 'ingredients_complete', 'unreadable', 'websites', 'gluten_free_logo', 'logo_license', 'gluten_free_claim'],
   properties: {
     product_name: { type: 'string', description: 'Produktbezeichnung wie auf der Packung, sonst leer' },
     brand: { type: 'string', description: 'Marke (z. B. Bresso, Oatly), sonst leer' },
@@ -37,6 +43,9 @@ const SCHEMA = {
     ingredients_complete: { type: 'boolean', description: 'true nur, wenn die Zutatenliste vollständig und sicher lesbar war' },
     unreadable: { type: 'array', items: { type: 'string' }, description: 'Stellen der Zutatenliste, die nicht sicher lesbar waren' },
     websites: { type: 'array', items: { type: 'string' }, description: 'Webadressen auf der Packung' },
+    gluten_free_logo: { type: 'boolean', description: 'true, wenn das Glutenfrei-Logo (durchgestrichene Ähre im Kreis) auf einem Foto zu sehen ist' },
+    logo_license: { type: 'string', description: 'Lizenznummer am Logo, z. B. "DE-020-012", sonst leer' },
+    gluten_free_claim: { type: 'string', description: 'Aufdruck wie "glutenfrei" oder "gluten free" wörtlich, sonst leer' },
   },
 } as const
 
@@ -45,13 +54,28 @@ const SYSTEM = `Du liest Fotos von Lebensmittelverpackungen für eine App, die M
 Wort kann für Zöliakie-Betroffene gefährlich sein. Ist ein Wort nicht sicher lesbar, nimm es nicht in die Zutatenliste
 auf, sondern trage die Stelle unter "unreadable" ein und setze "ingredients_complete" auf false.
 Mehrsprachige Packungen: Nimm die deutsche Zutatenliste. Großschreibung (Allergene) darfst du normal schreiben.
-Fehlt eine Angabe auf den Fotos, lass das Feld leer.`
+Fehlt eine Angabe auf den Fotos, lass das Feld leer.
+
+Besonders wichtig – das Glutenfrei-Logo: Suche auf allen Fotos gründlich nach dem geschützten Symbol für glutenfreie
+Lebensmittel: eine stilisierte Getreideähre, die von einem Strich durchgestrichen ist, meist in einem Kreis. Es ist oft
+klein, sitzt am Rand, auf der Rückseite oder neben dem Barcode und trägt eine Lizenznummer wie "DE-020-012" oder
+"AT-001-123" (Länderkürzel, dann Ziffern). Setze "gluten_free_logo" nur auf true, wenn du genau dieses Symbol siehst – nicht
+bei einer normalen (nicht durchgestrichenen) Ähre, nicht bei Bio-, Vegan- oder anderen Siegeln und nicht nur wegen des
+Wortes "glutenfrei". Trage die Lizenznummer wörtlich in "logo_license" ein, wenn sie lesbar ist. Einen Aufdruck wie
+"glutenfrei" überträgst du zusätzlich in "gluten_free_claim".`
 
 export function isValidReading(r: unknown): r is LabelReading {
   if (!r || typeof r !== 'object') return false
   const o = r as Record<string, unknown>
-  return ['product_name', 'brand', 'manufacturer', 'barcode', 'ingredients', 'traces'].every((k) => typeof o[k] === 'string') &&
+  const ok =
+    ['product_name', 'brand', 'manufacturer', 'barcode', 'ingredients', 'traces'].every((k) => typeof o[k] === 'string') &&
     typeof o.ingredients_complete === 'boolean' && Array.isArray(o.unreadable) && Array.isArray(o.websites)
+  if (!ok) return false
+  // Logo-Felder ergänzen, falls ein Modell sie auslässt (dann: kein Logo erkannt)
+  o.gluten_free_logo = o.gluten_free_logo === true
+  o.logo_license = typeof o.logo_license === 'string' ? o.logo_license.trim() : ''
+  o.gluten_free_claim = typeof o.gluten_free_claim === 'string' ? o.gluten_free_claim.trim() : ''
+  return true
 }
 
 interface ImageInput {

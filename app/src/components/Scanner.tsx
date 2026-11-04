@@ -27,7 +27,7 @@ export function Scanner({ scan }: { scan: ScanFlow }) {
       <h1>Was möchtest du prüfen?</h1>
       <Viewfinder onCode={(code) => void scan.startWithBarcode(code)} paused={busy} />
       <h2 className="label">Ohne Barcode</h2>
-      <p className="muted small">Fotografiere Vorderseite und Zutatenliste, dann unten auf „Prüfen“ tippen.</p>
+      <p className="muted small">Fotografiere Vorderseite, Zutatenliste und – falls vorhanden – das Glutenfrei-Logo, dann unten auf „Prüfen“ tippen.</p>
 
       <PhotoButtons onPick={(picked) => setFiles((prev) => [...prev, ...picked])} disabled={busy} />
 
