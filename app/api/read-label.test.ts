@@ -71,4 +71,22 @@ describe('POST /api/read-label (Gemini)', () => {
     stub(() => Response.json({ candidates: [{ content: { parts: [{ text: '{"x":1}' }] } }] }))
     expect((await handler.fetch(post({ images: [photo] }))).status).toBe(502)
   })
+
+  it('versucht bei erschöpftem Kontingent das nächste Modell', async () => {
+    process.env.GEMINI_API_KEY = 'g'
+    const f = stub((url) =>
+      url.includes('gemini-flash-latest') ? Response.json({ error: { message: 'quota' } }, { status: 429 }) : Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(reading) }] } }] }),
+    )
+    const res = await handler.fetch(post({ images: [photo] }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).model).toBe('gemini-2.5-flash')
+    expect(f.mock.calls.filter((c) => String(c[0]).includes('generateContent'))).toHaveLength(2)
+  })
+
+  it('GET: Diagnose ohne Fotos', async () => {
+    process.env.GEMINI_API_KEY = 'g'
+    stub(() => Response.json({ models: [{ name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] }, { name: 'models/text-embedding', supportedGenerationMethods: ['embedContent'] }] }))
+    const res = await handler.fetch(new Request('https://x.test/api/read-label'))
+    expect(await res.json()).toMatchObject({ provider: 'gemini', keyValid: true, available: ['gemini-2.5-flash'] })
+  })
 })
